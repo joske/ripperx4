@@ -6,29 +6,40 @@ pub fn main() -> iced::Result {
     Hello::run(Settings::default())
 }
 
-struct Hello;
+#[derive(Debug, Default)]
+struct Hello {
+    start: iced::button::State,
+}
+
+#[derive(Debug, Clone)]
+pub enum Message {
+    StartClicked,
+}
 
 impl Application for Hello {
     type Executor = executor::Default;
-    type Message = ();
+    type Message = Message;
     type Flags = ();
-
+    
     fn new(_flags: ()) -> (Hello, Command<Self::Message>) {
-        (Hello, Command::none())
+        (Hello { start: iced::button::State::new()}, Command::none())
     }
-
+    
     fn title(&self) -> String {
         String::from("A cool application")
     }
-
-    fn update(&mut self, _message: Self::Message, _clipboard: &mut Clipboard) -> Command<Self::Message> {
+    
+    fn update(&mut self, message: Message, _: &mut Clipboard) -> Command<Self::Message> {
+        match message {
+            Message::StartClicked => ripper::extract(),
+        }
         Command::none()
     }
-
+    
     fn view(&mut self) -> Element<Self::Message> {
-        let content = Column::new();
-        content.push(Text::new("Hello, world!"));
-        content.push(Button::new("start", None));
+        let mut content = Column::new();
+        content = content.push(Text::new("Hello, world!"));
+        content = content.push(Button::new(&mut self.start, Text::new("start")).on_press(Message::StartClicked));
         content.into()
     }
 }
