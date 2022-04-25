@@ -1,0 +1,47 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.8.2 -->
+<interface>
+  <!-- interface-name ripperx4.ui -->
+  <requires lib="gtk" version="4.0"/>
+  <object class="GtkWindow" id="window">
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkBox">
+            <child>
+              <object class="GtkImage">
+                <property name="file">src/xpms/ripperX.xpm</property>
+                <property name="hexpand">True</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox"/>
+            </child>
+            <child>
+              <object class="GtkButton" id="exit">
+                <signal name="clicked" handler="exit_clicked"/>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkFrame">
+            <property name="label">ripperX</property>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <child>
+                  <object class="GtkScrolledWindow"/>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkStatusbar"/>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

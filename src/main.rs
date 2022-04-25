@@ -1,7 +1,10 @@
 use std::thread;
 
 use glib::clone;
+use gtk::Builder;
 use gtk::ResponseType;
+use gtk::Window;
+use gtk::ffi::GtkBuilder;
 use gtk::prelude::*;
 use gtk::Application;
 use gtk::ApplicationWindow;
@@ -25,39 +28,20 @@ pub fn main() {
 }
 
 fn build_ui(app: &Application) {
+    let builder = Builder::from_resource("ripperx4.ui");
     // Create a button with label and margins
-    let button = Button::builder()
-        .label("Press me!")
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(12)
-        .build();
+    let exitButton : Button = builder.object("exit").unwrap();
+    let goButton : Button = builder.object("exit").unwrap();
 
     // let window: ApplicationWindow =ApplicationWindow::builder().application(app).build();
-    button.connect_clicked(move |button| {
-        // let dialog = Dialog::with_buttons(
-        //     Some("Done!"),
-        //     Some(&window),
-        //     gtk::DialogFlags::MODAL,
-        //     &[("Yes", ResponseType::Yes)],
-        // );
-    
-        // dialog.connect_response(clone!(@weak window => move |dialog, response| {
-        //     dialog.close();
-        // }));
+    goButton.connect_clicked(move |_| {
         thread::spawn(move || {
             extract();
-            // dialog.present();
         });
     });
 
     // Create a window
-    let window = ApplicationWindow::builder()
-        .application(app)
-        .title("My GTK App")
-        .child(&button)
-        .build();
+    let window : Window = builder.object("window").unwrap();
 
     // Present window
     window.present();
