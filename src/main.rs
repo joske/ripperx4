@@ -1,45 +1,64 @@
-use iced::{executor, Application, Clipboard, Command, Element, Settings, Text, Column, Button};
+use std::thread;
+
+use glib::clone;
+use gtk::ResponseType;
+use gtk::prelude::*;
+use gtk::Application;
+use gtk::ApplicationWindow;
+use gtk::Button;
+use gtk::Dialog;
+use ripper::extract;
 
 mod ripper;
 
-pub fn main() -> iced::Result {
-    Hello::run(Settings::default())
+pub fn main() {
+    // Create a new application
+    let app = Application::builder()
+        .application_id("be.sourcery.ripperx4")
+        .build();
+
+    // Connect to "activate" signal of `app`
+    app.connect_activate(build_ui);
+
+    // Run the application
+    app.run();
 }
 
-#[derive(Debug, Default)]
-struct Hello {
-    start: iced::button::State,
-}
+fn build_ui(app: &Application) {
+    // Create a button with label and margins
+    let button = Button::builder()
+        .label("Press me!")
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(12)
+        .margin_end(12)
+        .build();
 
-#[derive(Debug, Clone)]
-pub enum Message {
-    StartClicked,
-}
+    // let window: ApplicationWindow =ApplicationWindow::builder().application(app).build();
+    button.connect_clicked(move |button| {
+        // let dialog = Dialog::with_buttons(
+        //     Some("Done!"),
+        //     Some(&window),
+        //     gtk::DialogFlags::MODAL,
+        //     &[("Yes", ResponseType::Yes)],
+        // );
+    
+        // dialog.connect_response(clone!(@weak window => move |dialog, response| {
+        //     dialog.close();
+        // }));
+        thread::spawn(move || {
+            extract();
+            // dialog.present();
+        });
+    });
 
-impl Application for Hello {
-    type Executor = executor::Default;
-    type Message = Message;
-    type Flags = ();
-    
-    fn new(_flags: ()) -> (Hello, Command<Self::Message>) {
-        (Hello { start: iced::button::State::new()}, Command::none())
-    }
-    
-    fn title(&self) -> String {
-        String::from("A cool application")
-    }
-    
-    fn update(&mut self, message: Message, _: &mut Clipboard) -> Command<Self::Message> {
-        match message {
-            Message::StartClicked => ripper::extract(),
-        }
-        Command::none()
-    }
-    
-    fn view(&mut self) -> Element<Self::Message> {
-        let mut content = Column::new();
-        content = content.push(Text::new("Hello, world!"));
-        content = content.push(Button::new(&mut self.start, Text::new("start")).on_press(Message::StartClicked));
-        content.into()
-    }
+    // Create a window
+    let window = ApplicationWindow::builder()
+        .application(app)
+        .title("My GTK App")
+        .child(&button)
+        .build();
+
+    // Present window
+    window.present();
 }
