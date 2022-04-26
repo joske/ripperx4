@@ -2,11 +2,10 @@
 <!-- Created with Cambalache 0.8.2 -->
 <interface>
   <!-- interface-name ripperx4.ui -->
-  <requires lib="gtk" version="4.0"/>
+  <requires lib="gtk" version="4.0" />
   <object class="GtkApplicationWindow" id="window">
     <property name="default-height">600</property>
     <property name="default-width">400</property>
-    <property name="icon-name">src/xpms/exit.xpm</property>
     <child>
       <object class="GtkBox">
         <property name="orientation">vertical</property>
@@ -17,25 +16,70 @@
               <object class="GtkImage">
                 <property name="file">src/xpms/ripperX.xpm</property>
                 <property name="hexpand">True</property>
-                <property name="icon-name">ripperX</property>
               </object>
             </child>
             <child>
               <object class="GtkBox">
                 <child>
-                  <object class="GtkButton" id="scan_button"/>
+                  <object class="GtkButton" id="config_button">
+                    <child>
+                      <object class="GtkImage">
+                        <property name="file">src/xpms/config.xpm</property>
+                        <property name="hexpand">True</property>
+                      </object>
+                    </child>
+                  </object>
                 </child>
                 <child>
-                  <object class="GtkButton" id="cddb_button"/>
+                  <object class="GtkButton" id="scan_button">
+                    <child>
+                      <object class="GtkImage">
+                        <property name="file">src/xpms/scan.xpm</property>
+                        <property name="hexpand">True</property>
+                      </object>
+                    </child>
+                  </object>
                 </child>
                 <child>
-                  <object class="GtkButton" id="go_button"/>
+                  <object class="GtkButton" id="stop_button">
+                    <child>
+                      <object class="GtkImage">
+                        <property name="file">src/xpms/stop.xpm</property>
+                        <property name="hexpand">True</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="cddb_button">
+                    <child>
+                      <object class="GtkImage">
+                        <property name="file">src/xpms/cddb.xpm</property>
+                        <property name="hexpand">True</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="go_button">
+                    <child>
+                      <object class="GtkImage">
+                        <property name="file">src/xpms/go.xpm</property>
+                        <property name="hexpand">True</property>
+                      </object>
+                    </child>
+                  </object>
                 </child>
               </object>
             </child>
             <child>
               <object class="GtkButton" id="exit">
-                <signal name="clicked" handler="exit_clicked"/>
+                <child>
+                  <object class="GtkImage">
+                    <property name="file">src/xpms/exit.xpm</property>
+                    <property name="hexpand">True</property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>
@@ -49,7 +93,7 @@
                 <property name="orientation">vertical</property>
                 <property name="vexpand">True</property>
                 <child>
-                  <object class="GtkScrolledWindow"/>
+                  <object class="GtkScrolledWindow" />
                 </child>
               </object>
             </child>
