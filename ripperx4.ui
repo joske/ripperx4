@@ -12,6 +12,7 @@
         <property name="vexpand">True</property>
         <child>
           <object class="GtkBox">
+            <property name="hexpand">True</property>
             <child>
               <object class="GtkImage">
                 <property name="file">src/xpms/ripperX.xpm</property>
@@ -86,7 +87,11 @@
         </child>
         <child>
           <object class="GtkFrame">
-            <property name="label">ripperX</property>
+            <child type="label">
+              <object class="GtkLabel" id="frame_label">
+                <property name="label">ripperX</property>
+              </object>
+            </child>
             <child>
               <object class="GtkBox">
                 <property name="hexpand">True</property>
