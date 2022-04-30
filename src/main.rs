@@ -10,7 +10,10 @@ use gtk::Button;
 use gtk::Statusbar;
 use ripper::extract;
 
+use crate::data::Track;
+
 mod ripper;
+mod data;
 
 pub fn main() {
     // Create a new application
@@ -48,7 +51,13 @@ fn build_ui(app: &Application) {
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         thread::spawn(move || {
             let _ = tx.send(Some(1));
-            extract();
+            let track = Track {
+                number: 6,
+                title: "sultans".to_owned(),
+                artist: "Dire Straits".to_owned(),   
+                composer: None,             
+            };
+            extract(track);
             println!("done");
             let _ = tx.send(None);
         });
