@@ -1121,18 +1121,18 @@ dependencies = [
 
 [[package]]
 name = "lucene_query_builder"
-version = "0.2.4"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "febd643faccf163f42ce3c1871391fcccea69f6c4eb4679b6954d48e687f6117"
+checksum = "06a250d084897852aa59e2be2aa5684eee4adf71b03488fa578abc2d5be8721c"
 dependencies = [
  "lucene_query_builder_rs_derive",
 ]
 
 [[package]]
 name = "lucene_query_builder_rs_derive"
-version = "0.2.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82f1cebd77f3db19ecdd609e7a32685a891fead868c254813031da734d0d4b12"
+checksum = "97eabbb248dbc18c187c5ce1de50a479a835e8352a7f1506f4b321ccfd19d3e6"
 dependencies = [
  "proc-macro2 1.0.37",
  "quote 1.0.18",
@@ -1240,8 +1240,7 @@ checksum = "b5136edda114182728ccdedb9f5eda882781f35fa6e80cc360af12a8932507f3"
 [[package]]
 name = "musicbrainz_rs"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a172c51315b964dd3712f4811ca2e81072ed7bbeb372efc1bdd404142804a20"
+source = "git+https://github.com/joske/musicbrainz_rs#106ccc095312ff2f1e585666155e2593ec0e3bc3"
 dependencies = [
  "chrono",
  "lazy_static",

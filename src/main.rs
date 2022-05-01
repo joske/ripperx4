@@ -2,21 +2,21 @@ use std::path::Path;
 use std::thread;
 
 use discid::DiscId;
-use glib::clone;
 use gtk::prelude::*;
 use gtk::Application;
 use gtk::ApplicationWindow;
 use gtk::Builder;
 use gtk::Button;
 use gtk::Statusbar;
-use musicbrainz_rs::entity::release::Release;
 use ripper::extract;
 
 use crate::data::Disc;
 use crate::data::Track;
+use crate::metadata::search_disc;
 
 mod ripper;
 mod data;
+mod metadata;
 
 pub fn main() {
     // Create a new application
@@ -48,6 +48,7 @@ fn build_ui(app: &Application) {
         let discid = DiscId::read(Some(DiscId::default_device().as_str())).unwrap();
         println!("Scanned: {:?}", discid);
         println!("id={}", discid.id());
+        search_disc(discid.id().as_str());
         for t in discid.tracks() {
             println!("track: {:?}", t);
         }
@@ -63,6 +64,7 @@ fn build_ui(app: &Application) {
             let disc = Disc {
                 title: "Dire Straits".to_owned(),
                 artist: "Dire Straits".to_owned(),
+                ..Default::default()
             };
             let track = Track {
                 number: 6,

@@ -1,6 +1,8 @@
+#[derive(Default)]
 pub struct Disc {
     pub title: String,
     pub artist: String,
+    pub tracks: Vec<Track>
 }
 
 pub struct Track {
