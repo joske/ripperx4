@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::thread;
 
+use discid::DiscId;
 use glib::clone;
 use gtk::prelude::*;
 use gtk::Application;
@@ -8,8 +9,10 @@ use gtk::ApplicationWindow;
 use gtk::Builder;
 use gtk::Button;
 use gtk::Statusbar;
+use musicbrainz_rs::entity::release::Release;
 use ripper::extract;
 
+use crate::data::Disc;
 use crate::data::Track;
 
 mod ripper;
@@ -42,6 +45,12 @@ fn build_ui(app: &Application) {
 
     let scan_button: Button = builder.object("scan_button").unwrap();
     scan_button.connect_clicked(move |_| {
+        let discid = DiscId::read(Some(DiscId::default_device().as_str())).unwrap();
+        println!("Scanned: {:?}", discid);
+        println!("id={}", discid.id());
+        for t in discid.tracks() {
+            println!("track: {:?}", t);
+        }
     });
 
     let go_button: Button = builder.object("go_button").unwrap();
@@ -51,13 +60,18 @@ fn build_ui(app: &Application) {
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         thread::spawn(move || {
             let _ = tx.send(Some(1));
+            let disc = Disc {
+                title: "Dire Straits".to_owned(),
+                artist: "Dire Straits".to_owned(),
+            };
             let track = Track {
                 number: 6,
-                title: "sultans".to_owned(),
-                artist: "Dire Straits".to_owned(),   
+                title: "Sultans Of Swing".to_owned(),
+                artist: "Dire Straits".to_owned(),
+                duration: 5*60 + 32,
                 composer: None,             
             };
-            extract(track);
+            extract(&disc, &track);
             println!("done");
             let _ = tx.send(None);
         });
