@@ -1,10 +1,15 @@
-#[derive(Default)]
+#[derive(Default, Debug)]
+pub struct Data {
+    pub disc: Option<Disc>,
+}
+
+#[derive(Default, Debug)]
 pub struct Disc {
     pub title: String,
     pub artist: String,
     pub tracks: Vec<Track>
 }
-
+#[derive(Default, Debug)]
 pub struct Track {
     pub number: u32,
     pub title: String,

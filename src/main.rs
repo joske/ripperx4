@@ -1,6 +1,9 @@
+use std::cell::RefCell;
 use std::path::Path;
+use std::rc::Rc;
 use std::thread;
 
+use data::Data;
 use discid::DiscId;
 use gtk::prelude::*;
 use gtk::Application;
@@ -32,6 +35,7 @@ pub fn main() {
 }
 
 fn build_ui(app: &Application) {
+    let data = Rc::new(RefCell::new(Data {disc: None}));
     let builder = Builder::new();
     builder.add_from_file(Path::new("ripperx4.ui")).ok();
     let window: ApplicationWindow = builder.object("window").unwrap();
@@ -48,10 +52,10 @@ fn build_ui(app: &Application) {
         let discid = DiscId::read(Some(DiscId::default_device().as_str())).unwrap();
         println!("Scanned: {:?}", discid);
         println!("id={}", discid.id());
-        search_disc(discid.id().as_str());
-        for t in discid.tracks() {
-            println!("track: {:?}", t);
-        }
+        println!("freedbid={}", discid.freedb_id());
+        let disc = search_disc(&discid).expect("failed to find disc");
+        println!("disc:{}", disc.title);
+        data.borrow_mut().disc = Some(disc);
     });
 
     let go_button: Button = builder.object("go_button").unwrap();
