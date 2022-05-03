@@ -8,13 +8,10 @@ use std::{
 
 use discid::DiscId;
 
-use crate::data::Disc;
+use crate::data::{Disc, Track};
 
 pub fn search_disc(discid: &DiscId) -> Result<Disc, String> {
-    freedb(discid);
-    Ok(Disc {
-        ..Default::default()
-    })
+    freedb(discid)
 }
 
 fn send_command(stream: &mut TcpStream, cmd: String) -> Result<String, String> {
@@ -67,7 +64,7 @@ fn read_disc(stream: &mut TcpStream, cmd: String) -> Result<String, String> {
     Ok(data)
 }
 
-fn freedb(discid: &DiscId) {
+fn freedb(discid: &DiscId)  -> Result<Disc, String> {
     match TcpStream::connect("gnudb.gnudb.org:8880") {
         Ok(mut stream) => {
             println!("Successfully connected to server in port 8880");
@@ -99,7 +96,10 @@ fn freedb(discid: &DiscId) {
                 let category = response.split(" ").nth(1).unwrap();
                 let get = format!("cddb read {} {}\n", category, discid.freedb_id());
                 let data = read_disc(&mut stream, get).unwrap();
-                println!("disc:{}", data);
+                let disc = parse_data(data);
+                println!("disc:{:?}", disc);
+                stream.shutdown(Shutdown::Both).unwrap();
+                return Ok(disc);
             } else {
             }
             stream.shutdown(Shutdown::Both).unwrap();
@@ -109,6 +109,38 @@ fn freedb(discid: &DiscId) {
         }
     }
     println!("Terminated.");
+    return Err("".to_owned());
+}
+
+fn parse_data(data: String) -> Disc {
+    println!("{}", data);
+    let mut disc = Disc {
+        ..Default::default()
+    };
+    let mut i = 0;
+    for ref line in data.lines() {
+        if line.starts_with("DTITLE") {
+            let value = line.split("=").nth(1).unwrap();
+            let mut split = value.split("/");
+            disc.title = split.next().unwrap().trim().to_owned();
+            disc.artist = split.next().unwrap().trim().to_owned();
+        }
+        if line.starts_with("DYEAR") {
+            let value = line.split("=").nth(1).unwrap();
+            disc.year = value.parse::<u16>().unwrap();
+        }
+        if line.starts_with("TTITLE") {
+            let mut track = Track{
+                ..Default::default()
+            };
+            track.number = i + 1;
+            track.title = line.split("=").nth(1).unwrap().to_owned();
+            track.artist = disc.artist.clone();
+            disc.tracks.push(track);
+            i += 1;
+        }
+    }
+    disc
 }
 #[cfg(test)]
 mod test {
@@ -121,9 +153,10 @@ mod test {
         let offsets = [
             185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
         ];
-        let disc = DiscId::put(1, &offsets).unwrap();
-        println!("freedb id: {}", disc.freedb_id());
-        println!("mb id: {}", disc.id());
-        freedb(&disc);
+        let discid = DiscId::put(1, &offsets).unwrap();
+        println!("freedb id: {}", discid.freedb_id());
+        println!("mb id: {}", discid.id());
+        let disc = freedb(&discid);
+        assert!(disc.is_ok());
     }
 }

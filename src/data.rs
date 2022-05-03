@@ -7,6 +7,7 @@ pub struct Data {
 pub struct Disc {
     pub title: String,
     pub artist: String,
+    pub year: u16,
     pub tracks: Vec<Track>
 }
 #[derive(Default, Debug)]
