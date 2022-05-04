@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+home = "0.5.3"
 glib = "0.15.10"
 gtk = { version = "0.4.7", package = "gtk4", features = ["v4_6"]}
 gstreamer = "0.18"

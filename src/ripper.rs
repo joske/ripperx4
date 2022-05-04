@@ -1,19 +1,26 @@
+use std::path::Path;
+
 use gstreamer::tags::{Album, Artist, Duration, TrackNumber, Composer};
 use gstreamer::*;
 use gstreamer::{prelude::*, tags::Title};
 
 use crate::data::{Disc, Track};
+pub fn extract(disc: &Disc, status: &glib::Sender<String>) {
+    for t in disc.tracks.iter() {
+        extract_track(&disc, &t, status);
+    }
+}
 
-pub fn extract(disc: &Disc, track: &Track) {
+fn extract_track(disc: &Disc, track: &Track, status: &glib::Sender<String>) {
     gstreamer::init().unwrap();
     let cdda = format!("cdda://{}", track.number);
     let extractor = Element::make_from_uri(URIType::Src, cdda.as_str(), Some("cd_src")).unwrap();
-    extractor.set_property("read-speed", 40);
-    // let file = ElementFactory::make("filesrc", None).unwrap();
-    // file.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.wav");
-    // let wav = ElementFactory::make("wavparse", None).unwrap();
-    // let encodebin = gstreamer::parse_bin_from_description("lamemp3enc ! xingmux ! id3v2mux", true).unwrap();
+    extractor.set_property("read-speed", 0 as i32);
+    let progress = ElementFactory::make("progressreport", None).unwrap();
+    progress.set_property("update-freq", 1 as i32);
     let encoder = ElementFactory::make("lamemp3enc", None).unwrap();
+    encoder.set_property("bitrate", 320 as i32);
+    encoder.set_property("quality", 0 as f32);
     let id3 = ElementFactory::make("id3v2mux", None).unwrap();
 
     let mut tags = TagList::new();
@@ -36,12 +43,18 @@ pub fn extract(disc: &Disc, track: &Track) {
     let tagsetter = &id3.dynamic_cast_ref::<TagSetter>().unwrap();
     tagsetter.merge_tags(&tags, TagMergeMode::ReplaceAll);
 
+    let home = home::home_dir().unwrap();
+    let location = format!("{}/Music/{}-{}/{}.mp3", home.display(), disc.artist, disc.title, track.title);
+    //ensure folder exists
+    std::fs::create_dir_all(Path::new(&location).parent().unwrap()).unwrap();
     let sink = ElementFactory::make("filesink", None).unwrap();
-    sink.set_property("location", format!("/home/jos/Music/{}.mp3", track.title));
+    sink.set_property("location", location);
     let pipeline = Pipeline::new(Some("ripper"));
-    let elements = &[&extractor, &encoder, &id3, &sink];
+    let elements = &[&extractor, &progress, &encoder, &id3, &sink];
     pipeline.add_many(elements).unwrap();
     Element::link_many(elements).unwrap();
+    let status_message = format!("encoding {}", track.title);
+    status.send(status_message).unwrap();
 
     pipeline.set_state(State::Playing).unwrap();
 
@@ -61,6 +74,14 @@ pub fn extract(disc: &Disc, track: &Track) {
             }
             MessageView::StepDone(p) => {
                 println!("step done: ${:?}", p);
+                break;
+            }
+            MessageView::SegmentStart(p) => {
+                println!("segment start: ${:?}", p);
+                break;
+            }
+            MessageView::SegmentDone(p) => {
+                println!("segment done: ${:?}", p);
                 break;
             }
             MessageView::Eos(..) => {

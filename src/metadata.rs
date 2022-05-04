@@ -36,6 +36,43 @@ fn send_command(stream: &mut TcpStream, cmd: String) -> Result<String, String> {
     }
 }
 
+fn cddb_query(stream: &mut TcpStream, cmd: String, discid: &DiscId) -> Result<Disc, String> {
+    let msg = cmd.as_bytes();
+    stream.write(msg).unwrap();
+    println!("sent {}", cmd);
+    let mut response = String::new();
+    let mut reader = BufReader::new(stream.try_clone().unwrap());
+    match reader.read_line(&mut response) {
+        Ok(_) => {
+            println!("response: {}", response);
+            if response.starts_with("200") {
+                // exact match
+                let category = response.split(" ").nth(1).unwrap();
+                let disc = cddb_read(category, discid.freedb_id().as_str(), stream);
+                stream.shutdown(Shutdown::Both).unwrap();
+                return Ok(disc);
+            } else if response.starts_with("211") {
+                // inexact match - we take first hit for now
+                response = String::new();
+                reader.read_line(&mut response).unwrap(); // we expect at least one extra line
+                let mut split = response.split(" ");
+                let category = split.next().unwrap();
+                let discid = split.next().unwrap();
+                let disc = cddb_read(category, discid, stream);
+                stream.shutdown(Shutdown::Both).unwrap();
+                return Ok(disc);
+            } else {
+                stream.shutdown(Shutdown::Both).unwrap();
+                return Err("failed to query disc".to_owned());
+            }            
+        }
+        Err(e) => {
+            println!("Failed to send command: {}", e);
+            Err(e.to_string())
+        }
+    }
+}
+
 fn read_disc(stream: &mut TcpStream, cmd: String) -> Result<String, String> {
     let msg = cmd.as_bytes();
     stream.write(msg).unwrap();
@@ -64,7 +101,7 @@ fn read_disc(stream: &mut TcpStream, cmd: String) -> Result<String, String> {
     Ok(data)
 }
 
-fn freedb(discid: &DiscId)  -> Result<Disc, String> {
+fn freedb(discid: &DiscId) -> Result<Disc, String> {
     match TcpStream::connect("gnudb.gnudb.org:8880") {
         Ok(mut stream) => {
             println!("Successfully connected to server in port 8880");
@@ -89,20 +126,10 @@ fn freedb(discid: &DiscId)  -> Result<Disc, String> {
                 toc,
                 discid.sectors() / 75
             );
-            let response = send_command(&mut stream, query).unwrap();
+            let disc = cddb_query(&mut stream, query, discid);
 
-            if response.starts_with("200") {
-                // exact match
-                let category = response.split(" ").nth(1).unwrap();
-                let get = format!("cddb read {} {}\n", category, discid.freedb_id());
-                let data = read_disc(&mut stream, get).unwrap();
-                let disc = parse_data(data);
-                println!("disc:{:?}", disc);
-                stream.shutdown(Shutdown::Both).unwrap();
-                return Ok(disc);
-            } else {
-            }
             stream.shutdown(Shutdown::Both).unwrap();
+            return disc;
         }
         Err(e) => {
             println!("Failed to connect: {}", e);
@@ -110,6 +137,14 @@ fn freedb(discid: &DiscId)  -> Result<Disc, String> {
     }
     println!("Terminated.");
     return Err("".to_owned());
+}
+
+fn cddb_read(category: &str, discid: &str, stream: &mut TcpStream) -> Disc {
+    let get = format!("cddb read {} {}\n", category, discid);
+    let data = read_disc(stream, get).unwrap();
+    let disc = parse_data(data);
+    println!("disc:{:?}", disc);
+    disc
 }
 
 fn parse_data(data: String) -> Disc {
@@ -122,15 +157,15 @@ fn parse_data(data: String) -> Disc {
         if line.starts_with("DTITLE") {
             let value = line.split("=").nth(1).unwrap();
             let mut split = value.split("/");
-            disc.title = split.next().unwrap().trim().to_owned();
             disc.artist = split.next().unwrap().trim().to_owned();
+            disc.title = split.next().unwrap().trim().to_owned();
         }
         if line.starts_with("DYEAR") {
             let value = line.split("=").nth(1).unwrap();
             disc.year = value.parse::<u16>().unwrap();
         }
         if line.starts_with("TTITLE") {
-            let mut track = Track{
+            let mut track = Track {
                 ..Default::default()
             };
             track.number = i + 1;
