@@ -88,7 +88,15 @@
                 <property name="orientation">vertical</property>
                 <property name="vexpand">True</property>
                 <child>
-                  <object class="GtkScrolledWindow" />
+                  <object class="GtkScrolledWindow">
+                    <child>
+                      <object class="GtkBox" id="scroll">
+                        <property name="hexpand">True</property>
+                        <property name="orientation">vertical</property>
+                        <property name="vexpand">True</property>
+                      </object>
+                    </child>
+                  </object>
                 </child>
               </object>
             </child>

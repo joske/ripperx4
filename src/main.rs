@@ -5,6 +5,12 @@ use std::thread;
 
 use data::Data;
 use discid::DiscId;
+use gtk::Box;
+use gtk::Orientation;
+use gtk::builders::BoxBuilder;
+use gtk::builders::LabelBuilder;
+use gtk::builders::TextBufferBuilder;
+use gtk::builders::TextViewBuilder;
 use gtk::prelude::*;
 use gtk::Application;
 use gtk::ApplicationWindow;
@@ -53,16 +59,49 @@ fn build_ui(app: &Application) {
     go_button.set_sensitive(false);
     let go_button_clone = go_button.clone();
     let scan_button: Button = builder.object("scan_button").unwrap();
+    let scroll: Box = builder.object("scroll").unwrap();
+
     let data_scan = data.clone();
     scan_button.connect_clicked(move |_| {
         println!("Scan");
-        let discid = DiscId::read(Some(DiscId::default_device().as_str())).unwrap();
+        // let discid = DiscId::read(Some(DiscId::default_device().as_str())).unwrap();
+        let offsets = [
+            185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
+        ];
+        let discid = DiscId::put(1, &offsets).unwrap();
+        // here we know how many tracks there are
+        
         println!("Scanned: {:?}", discid);
         println!("id={}", discid.id());
         println!("freedbid={}", discid.freedb_id());
         if let Ok(disc) = search_disc(&discid) {
             println!("disc:{}", disc.title);
             data_scan.write().unwrap().disc = Some(disc);
+            let tracks = discid.last_track_num() - discid.first_track_num() + 1;
+            for i in 0..tracks {
+                let hbox = BoxBuilder::new().orientation(Orientation::Horizontal).vexpand(false).hexpand(true).spacing(50).build();
+                let label_text = format!("Track {}", i + 1);
+                let label = LabelBuilder::new().label(&label_text).build();
+                hbox.append(&label);
+
+                let r = data_scan.read().unwrap();
+                let d = r.disc.as_ref().unwrap();
+                let title = d.tracks[i as usize].title.as_str();
+                let buffer = TextBufferBuilder::new().text(&title).build();
+                // buffer.connect_changed(|_| {
+                //     let r = data_scan.write().unwrap();
+                //     let d = r.disc.as_ref().unwrap();
+                //     let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+                //     println!("{}", &text);
+                // });
+                let name = format!("{}", i);
+                let tb = TextViewBuilder::new().name(&name).buffer(&buffer).hexpand(true).build();
+                hbox.append(&tb);
+                tb.show();
+                scroll.append(&hbox);
+                hbox.show();
+            }
+            scroll.show();
         }
         go_button_clone.set_sensitive(true);
     });
