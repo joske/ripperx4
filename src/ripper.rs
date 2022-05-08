@@ -1,12 +1,17 @@
 use std::path::Path;
+use std::sync::{Arc, RwLock};
 
 use gstreamer::tags::{Album, Artist, Duration, TrackNumber, Composer};
 use gstreamer::*;
 use gstreamer::{prelude::*, tags::Title};
 
 use crate::data::{Disc, Track};
-pub fn extract(disc: &Disc, status: &glib::Sender<String>) {
+pub fn extract(disc: &Disc, status: &glib::Sender<String>, ripping: Arc<RwLock<bool>>) {
     for t in disc.tracks.iter() {
+        if !*ripping.read().unwrap() {
+            // ABORTED
+            break;
+        }
         extract_track(&disc, &t, status);
     }
 }

@@ -15,9 +15,9 @@ use ripper::extract;
 
 use crate::metadata::search_disc;
 
-mod ripper;
 mod data;
 mod metadata;
+mod ripper;
 
 pub fn main() {
     // Create a new application
@@ -33,7 +33,11 @@ pub fn main() {
 }
 
 fn build_ui(app: &Application) {
-    let data = Arc::new(RwLock::new(Data {disc: None}));
+    let data = Arc::new(RwLock::new(Data {
+        ..Default::default()
+    }));
+    let ripping = Arc::new(RwLock::new(false));
+
     let builder = Builder::new();
     builder.add_from_file(Path::new("ripperx4.ui")).ok();
     let window: ApplicationWindow = builder.object("window").unwrap();
@@ -59,33 +63,47 @@ fn build_ui(app: &Application) {
         if let Ok(disc) = search_disc(&discid) {
             println!("disc:{}", disc.title);
             data_scan.write().unwrap().disc = Some(disc);
-
         }
         go_button_clone.set_sensitive(true);
     });
 
-    go_button.connect_clicked(move |_| {
-        let status: Statusbar = builder.object("statusbar").unwrap();
-        let context_id = status.context_id("foo");
-        let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        thread::spawn(glib::clone!(@weak data => move || {
-            let data_go = data.clone();
-            if let Some(disc) = &data_go.read().unwrap().disc {
-                extract(&disc, &tx);
-                println!("done");
-                let _ = tx.send("done".to_owned());
-            };
-        }));
-        rx.attach(None, move |value| match value {
-             s => {
-                status.pop(context_id);
-                status.push(context_id, s.as_str());
-                if s == "done" {
-                    return glib::Continue(false);
-                }
-                glib::Continue(true)
-            }
-        });
+   let ripping_clone = ripping.clone();
+   let stop_button: Button = builder.object("stop_button").unwrap();
+    stop_button.connect_clicked(move |_| {
+        println!("stop");
+        let mut ripping = ripping_clone.write().unwrap();
+        if *ripping {
+            *ripping = false;
+        }
     });
 
+    let ripping_clone2 = ripping.clone();
+    go_button.connect_clicked(move |_| {
+        let mut ripping = ripping_clone2.write().unwrap();
+        if !*ripping {
+            *ripping = true;
+            let status: Statusbar = builder.object("statusbar").unwrap();
+            let context_id = status.context_id("foo");
+            let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+            let ripping_clone3 = ripping_clone2.clone();
+            thread::spawn(glib::clone!(@weak data => move || {
+                let data_go = data.clone();
+                if let Some(disc) = &data_go.read().unwrap().disc {
+                    extract(&disc, &tx, ripping_clone3);
+                    println!("done");
+                    let _ = tx.send("done".to_owned());
+                };
+            }));
+            rx.attach(None, move |value| match value {
+                s => {
+                    status.pop(context_id);
+                    status.push(context_id, s.as_str());
+                    if s == "done" {
+                        return glib::Continue(false);
+                    }
+                    glib::Continue(true)
+                }
+            });
+        }
+    });
 }

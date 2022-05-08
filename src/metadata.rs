@@ -14,6 +14,44 @@ pub fn search_disc(discid: &DiscId) -> Result<Disc, String> {
     freedb(discid)
 }
 
+fn freedb(discid: &DiscId) -> Result<Disc, String> {
+    match TcpStream::connect("gnudb.gnudb.org:8880") {
+        Ok(mut stream) => {
+            println!("Successfully connected to server in port 8880");
+            let mut hello = String::new();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            reader.read_line(&mut hello).unwrap();
+            let hello = "cddb hello ripperx localhost ripperx 4\n".to_owned();
+            send_command(&mut stream, hello).unwrap();
+            let count = discid.last_track_num() - discid.first_track_num() + 1;
+            let mut toc = discid.toc_string();
+            toc = toc
+                .match_indices(" ")
+                .nth(2)
+                .map(|(index, _)| toc.split_at(index))
+                .unwrap()
+                .1
+                .to_owned();
+            let query = format!(
+                "cddb query {} {} {} {}\n",
+                discid.freedb_id(),
+                count,
+                toc,
+                discid.sectors() / 75
+            );
+            let disc = cddb_query(&mut stream, query, discid);
+
+            stream.shutdown(Shutdown::Both).unwrap();
+            return disc;
+        }
+        Err(e) => {
+            println!("Failed to connect: {}", e);
+        }
+    }
+    println!("Terminated.");
+    return Err("".to_owned());
+}
+
 fn send_command(stream: &mut TcpStream, cmd: String) -> Result<String, String> {
     let msg = cmd.as_bytes();
     stream.write(msg).unwrap();
@@ -99,44 +137,6 @@ fn read_disc(stream: &mut TcpStream, cmd: String) -> Result<String, String> {
         }
     }
     Ok(data)
-}
-
-fn freedb(discid: &DiscId) -> Result<Disc, String> {
-    match TcpStream::connect("gnudb.gnudb.org:8880") {
-        Ok(mut stream) => {
-            println!("Successfully connected to server in port 8880");
-            let mut hello = String::new();
-            let mut reader = BufReader::new(stream.try_clone().unwrap());
-            reader.read_line(&mut hello).unwrap();
-            let hello = "cddb hello ripperx localhost ripperx 4\n".to_owned();
-            send_command(&mut stream, hello).unwrap();
-            let count = discid.last_track_num() - discid.first_track_num() + 1;
-            let mut toc = discid.toc_string();
-            toc = toc
-                .match_indices(" ")
-                .nth(2)
-                .map(|(index, _)| toc.split_at(index))
-                .unwrap()
-                .1
-                .to_owned();
-            let query = format!(
-                "cddb query {} {} {} {}\n",
-                discid.freedb_id(),
-                count,
-                toc,
-                discid.sectors() / 75
-            );
-            let disc = cddb_query(&mut stream, query, discid);
-
-            stream.shutdown(Shutdown::Both).unwrap();
-            return disc;
-        }
-        Err(e) => {
-            println!("Failed to connect: {}", e);
-        }
-    }
-    println!("Terminated.");
-    return Err("".to_owned());
 }
 
 fn cddb_read(category: &str, discid: &str, stream: &mut TcpStream) -> Disc {
