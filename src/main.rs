@@ -66,7 +66,23 @@ fn build_ui(app: &Application) {
     let scan_button: Button = builder.object("scan_button").unwrap();
     let scroll: Box = builder.object("scroll").unwrap();
     let title_text : TextView = builder.object("disc_title").unwrap();
+    let title_buffer = title_text.buffer();
+    let data_title = data.clone();
+    title_buffer.connect_changed(glib::clone!(@weak title_buffer => move |_| {
+        if data_title.write().unwrap().disc.is_some() {
+            let new_title = title_buffer.text(&title_buffer.start_iter(), &title_buffer.end_iter(), false);
+            data_title.write().unwrap().disc.as_mut().unwrap().title = new_title.to_string();
+        }
+    }));
     let artist_text : TextView = builder.object("disc_artist").unwrap();
+    let artist_buffer = artist_text.buffer();
+    let data_artist = data.clone();
+    artist_buffer.connect_changed(glib::clone!(@weak artist_buffer => move |_| {
+        if data_artist.write().unwrap().disc.is_some() {
+            let new_artist = artist_buffer.text(&artist_buffer.start_iter(), &artist_buffer.end_iter(), false);
+            data_artist.write().unwrap().disc.as_mut().unwrap().artist = new_artist.to_string();
+        }
+}));
 
     let data_scan = data.clone();
     scan_button.connect_clicked(move |_| {
@@ -82,7 +98,6 @@ fn build_ui(app: &Application) {
                 DiscId::put(1, &offsets).unwrap()
             }
         };
-        // here we know how many tracks there are
         
         println!("Scanned: {:?}", discid);
         println!("id={}", discid.id());
@@ -92,6 +107,7 @@ fn build_ui(app: &Application) {
             title_text.buffer().set_text(&disc.title.clone().as_str());
             artist_text.buffer().set_text(&disc.artist.clone().as_str());
             data_scan.write().unwrap().disc = Some(disc);
+            // here we know how many tracks there are
             let tracks = discid.last_track_num() - discid.first_track_num() + 1;
             for i in 0..tracks {
                 let hbox = BoxBuilder::new().orientation(Orientation::Horizontal).vexpand(false).hexpand(true).spacing(50).build();
