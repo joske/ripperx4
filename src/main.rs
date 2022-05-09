@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
@@ -12,6 +11,7 @@ use gtk::builders::BoxBuilder;
 use gtk::builders::LabelBuilder;
 use gtk::builders::TextBufferBuilder;
 use gtk::builders::TextViewBuilder;
+use gtk::gio::resources_register_include;
 use gtk::prelude::*;
 use gtk::Application;
 use gtk::ApplicationWindow;
@@ -27,6 +27,9 @@ mod metadata;
 mod ripper;
 
 pub fn main() {
+    resources_register_include!("ripperx4.gresource")
+        .expect("Failed to register resources.");
+
     // Create a new application
     let app = Application::builder()
         .application_id("be.sourcery.ripperx4")
@@ -46,7 +49,7 @@ fn build_ui(app: &Application) {
     let ripping = Arc::new(RwLock::new(false));
 
     let builder = Builder::new();
-    builder.add_from_file(Path::new("ripperx4.ui")).ok();
+    builder.add_from_resource("/ripperx4.ui").expect("failed to load UI");
     let window: ApplicationWindow = builder.object("window").unwrap();
     window.set_application(Some(app));
     window.present();
@@ -59,6 +62,7 @@ fn build_ui(app: &Application) {
     let go_button: Button = builder.object("go_button").unwrap();
     go_button.set_sensitive(false);
     let go_button_clone = go_button.clone();
+
     let scan_button: Button = builder.object("scan_button").unwrap();
     let scroll: Box = builder.object("scroll").unwrap();
     let title_text : TextView = builder.object("disc_title").unwrap();
@@ -76,7 +80,6 @@ fn build_ui(app: &Application) {
                     185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
                 ];
                 DiscId::put(1, &offsets).unwrap()
-
             }
         };
         // here we know how many tracks there are
@@ -125,7 +128,7 @@ fn build_ui(app: &Application) {
 
    let ripping_clone = ripping.clone();
    let stop_button: Button = builder.object("stop_button").unwrap();
-    stop_button.connect_clicked(move |_| {
+   stop_button.connect_clicked(move |_| {
         println!("stop");
         let mut ripping = ripping_clone.write().unwrap();
         if *ripping {

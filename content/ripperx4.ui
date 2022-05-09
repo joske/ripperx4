@@ -15,8 +15,10 @@
             <property name="hexpand">True</property>
             <child>
               <object class="GtkImage">
-                <property name="file">src/xpms/ripperX.xpm</property>
+                <property name="visible">true</property>
+                <property name="resource">/xpms/ripperX.xpm</property>
                 <property name="hexpand">True</property>
+                <property name="icon_size">1</property>
               </object>
             </child>
             <child>
@@ -25,7 +27,7 @@
                   <object class="GtkButton" id="config_button">
                     <child>
                       <object class="GtkImage">
-                        <property name="file">src/xpms/config.xpm</property>
+                        <property name="resource">/xpms/config.xpm</property>
                         <property name="hexpand">True</property>
                       </object>
                     </child>
@@ -35,7 +37,7 @@
                   <object class="GtkButton" id="scan_button">
                     <child>
                       <object class="GtkImage">
-                        <property name="file">src/xpms/scan.xpm</property>
+                        <property name="resource">/xpms/scan.xpm</property>
                         <property name="hexpand">True</property>
                       </object>
                     </child>
@@ -45,7 +47,7 @@
                   <object class="GtkButton" id="stop_button">
                     <child>
                       <object class="GtkImage">
-                        <property name="file">src/xpms/stop.xpm</property>
+                        <property name="resource">/xpms/stop.xpm</property>
                         <property name="hexpand">True</property>
                       </object>
                     </child>
@@ -55,7 +57,7 @@
                   <object class="GtkButton" id="go_button">
                     <child>
                       <object class="GtkImage">
-                        <property name="file">src/xpms/go.xpm</property>
+                        <property name="resource">/xpms/go.xpm</property>
                         <property name="hexpand">True</property>
                       </object>
                     </child>
@@ -67,7 +69,7 @@
               <object class="GtkButton" id="exit">
                 <child>
                   <object class="GtkImage">
-                    <property name="file">src/xpms/exit.xpm</property>
+                    <property name="resource">/xpms/exit.xpm</property>
                     <property name="hexpand">True</property>
                   </object>
                 </child>

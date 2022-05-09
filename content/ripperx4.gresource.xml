@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource>
+    <file compressed="true">ripperx4.ui</file>
+    <file compressed="true">xpms/go.xpm</file>
+    <file compressed="true">xpms/ripperX.xpm</file>
+    <file compressed="true">xpms/stop.xpm</file>
+    <file compressed="true">xpms/exit.xpm</file>
+    <file compressed="true">xpms/cddb.xpm</file>
+    <file compressed="true">xpms/scan.xpm</file>
+    <file compressed="true">xpms/config.xpm</file>
+  </gresource>
+</gresources>

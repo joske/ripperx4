@@ -9,3 +9,6 @@ glib = "0.15.10"
 gtk = { version = "0.4.7", package = "gtk4", features = ["v4_6"]}
 gstreamer = "0.18"
 discid = "0.4"
+
+[build-dependencies]
+gtk = { version = "0.4.7", package = "gtk4", features = ["v4_6"]}
