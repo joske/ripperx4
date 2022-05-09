@@ -7,6 +7,7 @@ use data::Data;
 use discid::DiscId;
 use gtk::Box;
 use gtk::Orientation;
+use gtk::TextView;
 use gtk::builders::BoxBuilder;
 use gtk::builders::LabelBuilder;
 use gtk::builders::TextBufferBuilder;
@@ -60,6 +61,8 @@ fn build_ui(app: &Application) {
     let go_button_clone = go_button.clone();
     let scan_button: Button = builder.object("scan_button").unwrap();
     let scroll: Box = builder.object("scroll").unwrap();
+    let title_text : TextView = builder.object("disc_title").unwrap();
+    let artist_text : TextView = builder.object("disc_artist").unwrap();
 
     let data_scan = data.clone();
     scan_button.connect_clicked(move |_| {
@@ -76,6 +79,8 @@ fn build_ui(app: &Application) {
         println!("freedbid={}", discid.freedb_id());
         if let Ok(disc) = search_disc(&discid) {
             println!("disc:{}", disc.title);
+            title_text.buffer().set_text(&disc.title.clone().as_str());
+            artist_text.buffer().set_text(&disc.artist.clone().as_str());
             data_scan.write().unwrap().disc = Some(disc);
             let tracks = discid.last_track_num() - discid.first_track_num() + 1;
             for i in 0..tracks {
@@ -88,14 +93,19 @@ fn build_ui(app: &Application) {
                 let d = r.disc.as_ref().unwrap();
                 let title = d.tracks[i as usize].title.as_str();
                 let buffer = TextBufferBuilder::new().text(&title).build();
-                // buffer.connect_changed(|_| {
-                //     let r = data_scan.write().unwrap();
-                //     let d = r.disc.as_ref().unwrap();
-                //     let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
-                //     println!("{}", &text);
-                // });
                 let name = format!("{}", i);
                 let tb = TextViewBuilder::new().name(&name).buffer(&buffer).hexpand(true).build();
+                let data_changed = data_scan.clone();
+                buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
+                    let mut r = data_changed.write().unwrap();
+                    let ref mut d = r.disc.as_mut().unwrap();
+                    let tracks = &mut d.tracks;
+                    let mut track = &mut tracks[i as usize];
+                    let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+                    println!("{}", &text);
+                    track.title = text.to_string();
+                    println!("{}", &track.title);
+                }));
                 hbox.append(&tb);
                 tb.show();
                 scroll.append(&hbox);
