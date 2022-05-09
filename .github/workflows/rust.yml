@@ -16,10 +16,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install glib/gtk dev
+      run: sudo apt-get install -y libglib2.0-dev libgtk-4-bin libgtk-4-common libgtk-4-dev
     - name: Build
-      run: cargo build --verbose
+      run: cargo build
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test
       
     - uses: actions/upload-artifact@v3
       with:
