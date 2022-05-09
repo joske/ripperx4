@@ -67,11 +67,18 @@ fn build_ui(app: &Application) {
     let data_scan = data.clone();
     scan_button.connect_clicked(move |_| {
         println!("Scan");
-        // let discid = DiscId::read(Some(DiscId::default_device().as_str())).unwrap();
-        let offsets = [
-            185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
-        ];
-        let discid = DiscId::put(1, &offsets).unwrap();
+        let result = DiscId::read(Some(DiscId::default_device().as_str()));
+        let discid = match result {
+            Ok(d) => d,
+            Err(_) => {
+                // for testing on machine without CDROM drive: hardcode offset of a dire straits disc
+                let offsets = [
+                    185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
+                ];
+                DiscId::put(1, &offsets).unwrap()
+
+            }
+        };
         // here we know how many tracks there are
         
         println!("Scanned: {:?}", discid);
