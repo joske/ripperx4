@@ -4,9 +4,6 @@ use std::thread;
 
 use data::Data;
 use discid::DiscId;
-use gtk::Box;
-use gtk::Orientation;
-use gtk::TextView;
 use gtk::builders::BoxBuilder;
 use gtk::builders::LabelBuilder;
 use gtk::builders::TextBufferBuilder;
@@ -15,9 +12,12 @@ use gtk::gio::resources_register_include;
 use gtk::prelude::*;
 use gtk::Application;
 use gtk::ApplicationWindow;
+use gtk::Box;
 use gtk::Builder;
 use gtk::Button;
+use gtk::Orientation;
 use gtk::Statusbar;
+use gtk::TextView;
 use ripper::extract;
 
 use crate::metadata::search_disc;
@@ -27,8 +27,7 @@ mod metadata;
 mod ripper;
 
 pub fn main() {
-    resources_register_include!("ripperx4.gresource")
-        .expect("Failed to register resources.");
+    resources_register_include!("ripperx4.gresource").expect("Failed to register resources.");
 
     // Create a new application
     let app = Application::builder()
@@ -49,7 +48,9 @@ fn build_ui(app: &Application) {
     let ripping = Arc::new(RwLock::new(false));
 
     let builder = Builder::new();
-    builder.add_from_resource("/ripperx4.ui").expect("failed to load UI");
+    builder
+        .add_from_resource("/ripperx4.ui")
+        .expect("failed to load UI");
     let window: ApplicationWindow = builder.object("window").unwrap();
     window.set_application(Some(app));
     window.present();
@@ -65,7 +66,7 @@ fn build_ui(app: &Application) {
 
     let scan_button: Button = builder.object("scan_button").unwrap();
     let scroll: Box = builder.object("scroll").unwrap();
-    let title_text : TextView = builder.object("disc_title").unwrap();
+    let title_text: TextView = builder.object("disc_title").unwrap();
     let title_buffer = title_text.buffer();
     let data_title = data.clone();
     title_buffer.connect_changed(glib::clone!(@weak title_buffer => move |_| {
@@ -74,7 +75,8 @@ fn build_ui(app: &Application) {
             data_title.write().unwrap().disc.as_mut().unwrap().title = new_title.to_string();
         }
     }));
-    let artist_text : TextView = builder.object("disc_artist").unwrap();
+    
+    let artist_text: TextView = builder.object("disc_artist").unwrap();
     let artist_buffer = artist_text.buffer();
     let data_artist = data.clone();
     artist_buffer.connect_changed(glib::clone!(@weak artist_buffer => move |_| {
@@ -82,7 +84,7 @@ fn build_ui(app: &Application) {
             let new_artist = artist_buffer.text(&artist_buffer.start_iter(), &artist_buffer.end_iter(), false);
             data_artist.write().unwrap().disc.as_mut().unwrap().artist = new_artist.to_string();
         }
-}));
+    }));
 
     let data_scan = data.clone();
     scan_button.connect_clicked(move |_| {
@@ -98,7 +100,7 @@ fn build_ui(app: &Application) {
                 DiscId::put(1, &offsets).unwrap()
             }
         };
-        
+
         println!("Scanned: {:?}", discid);
         println!("id={}", discid.id());
         println!("freedbid={}", discid.freedb_id());
@@ -110,7 +112,12 @@ fn build_ui(app: &Application) {
             // here we know how many tracks there are
             let tracks = discid.last_track_num() - discid.first_track_num() + 1;
             for i in 0..tracks {
-                let hbox = BoxBuilder::new().orientation(Orientation::Horizontal).vexpand(false).hexpand(true).spacing(50).build();
+                let hbox = BoxBuilder::new()
+                    .orientation(Orientation::Horizontal)
+                    .vexpand(false)
+                    .hexpand(true)
+                    .spacing(50)
+                    .build();
                 let label_text = format!("Track {}", i + 1);
                 let label = LabelBuilder::new().label(&label_text).build();
                 hbox.append(&label);
@@ -120,7 +127,11 @@ fn build_ui(app: &Application) {
                 let title = d.tracks[i as usize].title.as_str();
                 let buffer = TextBufferBuilder::new().text(&title).build();
                 let name = format!("{}", i);
-                let tb = TextViewBuilder::new().name(&name).buffer(&buffer).hexpand(true).build();
+                let tb = TextViewBuilder::new()
+                    .name(&name)
+                    .buffer(&buffer)
+                    .hexpand(true)
+                    .build();
                 let data_changed = data_scan.clone();
                 buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
                     let mut r = data_changed.write().unwrap();
@@ -142,9 +153,9 @@ fn build_ui(app: &Application) {
         go_button_clone.set_sensitive(true);
     });
 
-   let ripping_clone = ripping.clone();
-   let stop_button: Button = builder.object("stop_button").unwrap();
-   stop_button.connect_clicked(move |_| {
+    let ripping_clone = ripping.clone();
+    let stop_button: Button = builder.object("stop_button").unwrap();
+    stop_button.connect_clicked(move |_| {
         println!("stop");
         let mut ripping = ripping_clone.write().unwrap();
         if *ripping {
