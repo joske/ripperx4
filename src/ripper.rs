@@ -58,8 +58,15 @@ fn extract_track(disc: &Disc, track: &Track, status: &glib::Sender<String>) {
     let elements = &[&extractor, &progress, &encoder, &id3, &sink];
     pipeline.add_many(elements).unwrap();
     Element::link_many(elements).unwrap();
+
     let status_message = format!("encoding {}", track.title);
     status.send(status_message).unwrap();
+
+    // glib::timeout_add_local(std::time::Duration::from_millis(1000), || {
+    //     let position: Option<f64> = extractor.position_pct();
+    //     println!("position {}", position.unwrap());
+    //     glib::Continue(true)
+    // });
 
     pipeline.set_state(State::Playing).unwrap();
 
