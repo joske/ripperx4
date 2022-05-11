@@ -35,11 +35,12 @@ fn extract_track(pipeline: Pipeline, title: String, status: &glib::Sender<String
     glib::timeout_add(std::time::Duration::from_millis(10), move || {
         if *playing_clone.read().unwrap() {
             let pipeline = &pipeline_clone;
-            let pos = pipeline.query_position_generic(Format::Time).unwrap();
-            let dur = pipeline.query_duration_generic(Format::Time).unwrap();
-            println!("position: {} / {}", pos, dur);
-            let status_message_perc = format!("encoding {}", status_message_clone);
+            let pos = pipeline.query_position_generic(Format::Percent).unwrap();
+            let dur = pipeline.query_duration_generic(Format::Percent).unwrap();
+            let perc = pos.value() as f64 / dur.value() as f64 * 100.0;
+            let status_message_perc = format!("{} : {:.0} %", status_message_clone, perc);
             status.send(status_message_perc).unwrap();
+            println!("position: {:.0}", perc);
 
             if pos == dur {
                 return glib::Continue(false);
