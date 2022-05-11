@@ -40,13 +40,10 @@ fn extract_track(pipeline: Pipeline, title: String, status: &glib::Sender<String
             let perc = pos.value() as f64 / dur.value() as f64 * 100.0;
             let status_message_perc = format!("{} : {:.0} %", status_message_clone, perc);
             status.send(status_message_perc).unwrap();
-            println!("position: {:.0}", perc);
 
             if pos == dur {
                 return glib::Continue(false);
             }
-        } else {
-            println!("not yet playing");
         }
         return glib::Continue(true);
     });
@@ -60,7 +57,6 @@ fn extract_track(pipeline: Pipeline, title: String, status: &glib::Sender<String
         match msg.view() {
             MessageView::Eos(..) => {
                 pipeline.set_state(State::Null).unwrap();
-                println!("done");
                 main_loop.quit();
             }
             MessageView::Error(err) => {
@@ -143,7 +139,6 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
 
 #[cfg(test)]
 mod test {
-    use glib::MainLoop;
     use gstreamer::prelude::*;
     use gstreamer::*;
 
@@ -164,8 +159,6 @@ mod test {
         pipeline.add_many(elements).unwrap();
         Element::link_many(elements).unwrap();
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        let main_loop = MainLoop::new(None, false);
-        extract_track(pipeline, "track".to_owned(), &tx);
         rx.attach(None, move |value| match value {
             s => {
                 println!("status: {}", s);
@@ -175,6 +168,6 @@ mod test {
                 glib::Continue(true)
             }
         });
-        main_loop.run();
+        extract_track(pipeline, "track".to_owned(), &tx);
     }
 }
