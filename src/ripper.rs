@@ -62,13 +62,21 @@ fn extract_track(disc: &Disc, track: &Track, status: &glib::Sender<String>) {
     let status_message = format!("encoding {}", track.title);
     status.send(status_message).unwrap();
 
-    // glib::timeout_add_local(std::time::Duration::from_millis(1000), || {
-    //     let position: Option<f64> = extractor.position_pct();
-    //     println!("position {}", position.unwrap());
-    //     glib::Continue(true)
-    // });
+    let playing = Arc::new(RwLock::new(false));
 
     pipeline.set_state(State::Playing).unwrap();
+    let pipeline_clone = pipeline.clone();
+    let playing_clone = playing.clone();
+    glib::timeout_add_seconds(1, move || {
+        let pipeline = &pipeline_clone;
+        if *playing_clone.read().unwrap() {
+            let pos = pipeline.query_position_generic(Format::Time).unwrap();
+            let dur = pipeline.query_duration_generic(Format::Time).unwrap();
+            println!("position: {} / {}", pos, dur);
+        }
+
+        glib::Continue(true)
+    });
 
     let bus = pipeline
         .bus()
@@ -112,6 +120,9 @@ fn extract_track(disc: &Disc, track: &Track, status: &glib::Sender<String>) {
                 break;
             }
             MessageView::StateChanged(s) => {
+                if s.current() == State::Playing {
+                   *playing.clone().write().unwrap() = true;
+                }
                 println!(
                     "State changed from {:?}: {:?} -> {:?} ({:?})",
                     s.src().map(|s| s.path_string()),
