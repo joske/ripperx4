@@ -1,3 +1,5 @@
+use confy::ConfyError;
+use data::Config;
 use gtk::gio::resources_register_include;
 use gtk::prelude::*;
 use gtk::Application;
@@ -9,6 +11,12 @@ mod ui;
 
 pub fn main() {
     resources_register_include!("ripperx4.gresource").expect("Failed to register resources.");
+
+    let cfg: Result<Config, ConfyError> = confy::load("ripperx4");
+    if cfg.is_err() {
+        let config = Config::default();
+        confy::store("ripperx4", config).unwrap();
+    }
 
     let app = Application::builder()
         .application_id("be.sourcery.ripperx4")

@@ -1,12 +1,13 @@
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
+use confy::ConfyError;
 use glib::MainLoop;
 use gstreamer::tags::{Album, Artist, Composer, Duration, TrackNumber};
 use gstreamer::*;
 use gstreamer::{prelude::*, tags::Title};
 
-use crate::data::{Disc, Track};
+use crate::data::{Disc, Track, Config, Encoder};
 
 pub fn extract(disc: &Disc, status: &glib::Sender<String>, ripping: Arc<RwLock<bool>>) {
     for t in disc.tracks.iter() {
@@ -96,15 +97,21 @@ fn extract_track(pipeline: Pipeline, title: String, status: &glib::Sender<String
 }
 
 fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
+    let cfg: Result<Config, ConfyError>  = confy::load("ripperx4");
+    let config = cfg.unwrap();
+
     gstreamer::init().unwrap();
-    let cdda = format!("cdda://{}", track.number);
-    let extractor = Element::make_from_uri(URIType::Src, cdda.as_str(), Some("cd_src")).unwrap();
-    extractor.set_property("read-speed", 0 as i32);
-    let progress = ElementFactory::make("progressreport", None).unwrap();
-    progress.set_property("update-freq", 1 as i32);
-    let encoder = ElementFactory::make("lamemp3enc", None).unwrap();
-    encoder.set_property("bitrate", 320 as i32);
-    encoder.set_property("quality", 0 as f32);
+    let encoder = match config.encoder {
+        Encoder::MP3 => {
+            let enc = ElementFactory::make("lamemp3enc", None).unwrap();
+            enc.set_property("bitrate", 320 as i32);
+            enc.set_property("quality", 0 as f32);
+            enc
+        },
+        Encoder::OGG => ElementFactory::make("vorbisenc", None).unwrap(),
+        Encoder::FLAC => ElementFactory::make("flacenc", None).unwrap(),
+    };
+    
     let id3 = ElementFactory::make("id3v2mux", None).unwrap();
     let mut tags = TagList::new();
     {
@@ -124,20 +131,32 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
     }
     let tagsetter = &id3.dynamic_cast_ref::<TagSetter>().unwrap();
     tagsetter.merge_tags(&tags, TagMergeMode::ReplaceAll);
-    let home = home::home_dir().unwrap();
+
+    let extension = match config.encoder {
+        Encoder::MP3 =>".mp3",
+        Encoder::OGG => ".ogg",
+        Encoder::FLAC => ".flac",
+    };
+
     let location = format!(
-        "{}/Music/{}-{}/{}.mp3",
-        home.display(),
+        "{}/{}-{}/{}{}",
+        config.encode_path,
         disc.artist,
         disc.title,
-        track.title
+        track.title,
+        extension
     );
     //ensure folder exists
     std::fs::create_dir_all(Path::new(&location).parent().unwrap()).unwrap();
     let sink = ElementFactory::make("filesink", None).unwrap();
     sink.set_property("location", location);
+
+    let cdda = format!("cdda://{}", track.number);
+    let extractor = Element::make_from_uri(URIType::Src, cdda.as_str(), Some("cd_src")).unwrap();
+    extractor.set_property("read-speed", 0 as i32);
+
     let pipeline = Pipeline::new(Some("ripper"));
-    let elements = &[&extractor, &progress, &encoder, &id3, &sink];
+    let elements = &[&extractor, &encoder, &id3, &sink];
     pipeline.add_many(elements).unwrap();
     Element::link_many(elements).unwrap();
     pipeline
@@ -153,7 +172,7 @@ mod test {
     use super::extract_track;
 
     #[test]
-    pub fn test() {
+    pub fn test_mp3() {
         gstreamer::init().unwrap();
         let file = ElementFactory::make("filesrc", None).unwrap();
         file.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.wav");
@@ -179,4 +198,58 @@ mod test {
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track".to_owned(), &tx, ripping);
     }
+    #[test]
+    pub fn test_flac() {
+        gstreamer::init().unwrap();
+        let file = ElementFactory::make("filesrc", None).unwrap();
+        file.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.wav");
+        let wav = ElementFactory::make("wavparse", None).unwrap();
+        let encoder = ElementFactory::make("flacenc", None).unwrap();
+        let sink = ElementFactory::make("filesink", None).unwrap();
+        sink.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.flac");
+        let pipeline = Pipeline::new(Some("ripper"));
+        let elements = &[&file, &wav, &encoder, &sink];
+        pipeline.add_many(elements).unwrap();
+        Element::link_many(elements).unwrap();
+        let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        rx.attach(None, move |value| match value {
+            s => {
+                println!("status: {}", s);
+                if s == "done" {
+                    return glib::Continue(false);
+                }
+                glib::Continue(true)
+            }
+        });
+        let ripping = Arc::new(RwLock::new(true));
+        extract_track(pipeline, "track".to_owned(), &tx, ripping);
+    }
+
+    #[test]
+    pub fn test_ogg() {
+        gstreamer::init().unwrap();
+        let file = ElementFactory::make("filesrc", None).unwrap();
+        file.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.wav");
+        let wav = ElementFactory::make("wavparse", None).unwrap();
+        let bin = parse_bin_from_description("audioconvert ! vorbisenc ! oggmux", false).unwrap();
+        let sink = ElementFactory::make("filesink", None).unwrap();
+        sink.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.ogg");
+        let pipeline = Pipeline::new(Some("ripper"));
+        let elements = &[&file, &wav, &bin.dynamic_cast_ref::<Element>().unwrap(), &sink];
+        pipeline.add_many(elements).unwrap();
+        Element::link_many(elements).unwrap();
+        let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        rx.attach(None, move |value| match value {
+            s => {
+                println!("status: {}", s);
+                if s == "done" {
+                    return glib::Continue(false);
+                }
+                glib::Continue(true)
+            }
+        });
+        let ripping = Arc::new(RwLock::new(true));
+        extract_track(pipeline, "track".to_owned(), &tx, ripping);
+    }
+
 }
