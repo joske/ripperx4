@@ -15,11 +15,11 @@ pub fn extract(disc: &Disc, status: &glib::Sender<String>, ripping: Arc<RwLock<b
             break;
         }
         let pipeline = create_pipeline(t, disc);
-        extract_track(pipeline, t.title.clone(), status);
+        extract_track(pipeline, t.title.clone(), status, ripping.clone());
     }
 }
 
-fn extract_track(pipeline: Pipeline, title: String, status: &glib::Sender<String>) {
+fn extract_track(pipeline: Pipeline, title: String, status: &glib::Sender<String>, ripping: Arc<RwLock<bool>>) {
     let status_message = format!("encoding {}", title);
     let status_message_clone = status_message.clone();
     status.send(status_message).unwrap();
@@ -32,9 +32,15 @@ fn extract_track(pipeline: Pipeline, title: String, status: &glib::Sender<String
     let pipeline_clone = pipeline.clone();
     let playing_clone = playing.clone();
     let status = status.clone();
-    glib::timeout_add(std::time::Duration::from_millis(10), move || {
+    glib::timeout_add(std::time::Duration::from_millis(1000), move || {
+        let pipeline = &pipeline_clone;
+        if !*ripping.read().unwrap() {
+            // ABORTED
+            pipeline.set_state(State::Null).unwrap();
+            status.send("aborted".to_owned()).unwrap();
+            return glib::Continue(false);
+        }
         if *playing_clone.read().unwrap() {
-            let pipeline = &pipeline_clone;
             let pos = pipeline.query_position_generic(Format::Percent).unwrap();
             let dur = pipeline.query_duration_generic(Format::Percent).unwrap();
             let perc = pos.value() as f64 / dur.value() as f64 * 100.0;
@@ -139,6 +145,8 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
 
 #[cfg(test)]
 mod test {
+    use std::sync::{Arc, RwLock};
+
     use gstreamer::prelude::*;
     use gstreamer::*;
 
@@ -168,6 +176,7 @@ mod test {
                 glib::Continue(true)
             }
         });
-        extract_track(pipeline, "track".to_owned(), &tx);
+        let ripping = Arc::new(RwLock::new(true));
+        extract_track(pipeline, "track".to_owned(), &tx, ripping);
     }
 }
