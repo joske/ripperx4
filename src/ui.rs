@@ -3,22 +3,24 @@ use std::sync::RwLock;
 use std::thread;
 
 use confy::ConfyError;
+use gtk::Align;
+use gtk::Frame;
+use gtk::Separator;
 use gtk::builders::BoxBuilder;
 use gtk::builders::LabelBuilder;
 use gtk::builders::TextBufferBuilder;
 use gtk::builders::TextViewBuilder;
-use gtk::{prelude::*, ResponseType};
 use gtk::Application;
 use gtk::ApplicationWindow;
 use gtk::Box;
 use gtk::Builder;
 use gtk::Button;
-use gtk::ButtonsType;
+use gtk::Dialog;
 use gtk::DropDown;
-use gtk::MessageDialog;
 use gtk::Orientation;
 use gtk::Statusbar;
 use gtk::TextView;
+use gtk::prelude::*;
 
 use discid::DiscId;
 
@@ -81,10 +83,19 @@ fn handle_config(config_button: Button) {
         let child = Box::builder()
             .orientation(Orientation::Vertical)
             .spacing(10)
-            .height_request(300)
-            .width_request(300)
+            .hexpand(true)
+            .vexpand(true)
             .build();
-        let path = TextView::new();
+        let frame = Frame::builder()
+            .child(&child)
+            .label("Configuration")
+            .hexpand(true)
+            .vexpand(true)
+            .build();
+        let path = TextView::builder()
+            .visible(true)
+            .hexpand(true)
+            .build();
         path.buffer()
             .set_text(config.read().unwrap().encode_path.as_str());
         child.append(&path);
@@ -97,16 +108,29 @@ fn handle_config(config_button: Button) {
         };
         combo.set_selected(selected);
         child.append(&combo);
+        let separator = Separator::builder()
+            .vexpand(true)
+            .build();
+        child.append(&separator);
+        let button_box = Box::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(10)
+            .halign(Align::End)
+            .build();
+        let ok_button = Button::builder().label("Ok").build();
+        button_box.append(&ok_button);
+        let cancel_button = Button::builder().label("Cancel").build();
+        button_box.append(&cancel_button);
+        child.append(&button_box);
 
-        let dialog = MessageDialog::builder()
+        let dialog = Dialog::builder()
             .title("Configuration")
-            .buttons(ButtonsType::OkCancel)
             .modal(true)
-            // .child(&child)
+            .child(&frame)
+            .width_request(300)
             .build();
         let config_clone = config.clone();
-        dialog.connect_response(glib::clone!(@weak dialog => move |_, response| {
-            if response == ResponseType::Ok {
+        ok_button.connect_clicked(glib::clone!(@weak dialog => move |_| {
                 let buf = path.buffer();
                 let new_path = path
                     .buffer()
@@ -121,7 +145,9 @@ fn handle_config(config_button: Button) {
                 };
                 let c = config_clone.read().unwrap();
                 confy::store("ripperx4", &*c).unwrap();
-            }
+            dialog.close();
+        }));
+        cancel_button.connect_clicked(glib::clone!(@weak dialog => move |_| {
             dialog.close();
         }));
         dialog.show();

@@ -59,7 +59,6 @@
                       <object class="GtkImage">
                         <property name="resource">/xpms/go.xpm</property>
                         <property name="hexpand">True</property>
-                        <property name="sensitive">False</property>
                       </object>
                     </child>
                   </object>
