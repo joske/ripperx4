@@ -2,25 +2,31 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
 
-use gtk::prelude::*;
+use confy::ConfyError;
+use gtk::builders::BoxBuilder;
 use gtk::builders::LabelBuilder;
 use gtk::builders::TextBufferBuilder;
 use gtk::builders::TextViewBuilder;
+use gtk::{prelude::*, ResponseType};
 use gtk::Application;
-use gtk::builders::BoxBuilder;
 use gtk::ApplicationWindow;
 use gtk::Box;
 use gtk::Builder;
 use gtk::Button;
+use gtk::ButtonsType;
+use gtk::DropDown;
+use gtk::MessageDialog;
 use gtk::Orientation;
 use gtk::Statusbar;
 use gtk::TextView;
 
 use discid::DiscId;
 
+use crate::data::Config;
 use crate::data::Data;
-use crate::ripper::extract;
+use crate::data::Encoder;
 use crate::metadata::search_disc;
+use crate::ripper::extract;
 
 pub fn build_ui(app: &Application) {
     let data = Arc::new(RwLock::new(Data {
@@ -41,21 +47,85 @@ pub fn build_ui(app: &Application) {
     exit_button.connect_clicked(move |_| {
         window.close();
     });
-    
+
     let title_text: TextView = builder.object("disc_title").unwrap();
     let artist_text: TextView = builder.object("disc_artist").unwrap();
     handle_disc(&title_text, data.clone(), &artist_text);
-    
+
     let go_button: Button = builder.object("go_button").unwrap();
     let scroll: Box = builder.object("scroll").unwrap();
     let scan_button: Button = builder.object("scan_button").unwrap();
-    handle_scan(scan_button, go_button.clone(), title_text, artist_text, scroll, data.clone());
+    handle_scan(
+        scan_button,
+        go_button.clone(),
+        title_text,
+        artist_text,
+        scroll,
+        data.clone(),
+    );
+
+    let config_button: Button = builder.object("config_button").unwrap();
+    handle_config(config_button);
 
     let stop_button: Button = builder.object("stop_button").unwrap();
     handle_stop(stop_button, ripping.clone());
 
     let status: Statusbar = builder.object("statusbar").unwrap();
     handle_go(ripping, go_button, status, data.clone());
+}
+
+fn handle_config(config_button: Button) {
+    config_button.connect_clicked(move |_| {
+        let cfg: Result<Config, ConfyError> = confy::load("ripperx4");
+        let config = Arc::new(RwLock::new(cfg.unwrap()));
+        let child = Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(10)
+            .height_request(300)
+            .width_request(300)
+            .build();
+        let path = TextView::new();
+        path.buffer()
+            .set_text(config.read().unwrap().encode_path.as_str());
+        child.append(&path);
+        let options = ["mp3", "ogg", "flac"];
+        let combo = DropDown::from_strings(&options);
+        let selected = match config.read().unwrap().encoder {
+            Encoder::MP3 => 0,
+            Encoder::OGG => 1,
+            Encoder::FLAC => 2,
+        };
+        combo.set_selected(selected);
+        child.append(&combo);
+
+        let dialog = MessageDialog::builder()
+            .title("Configuration")
+            .buttons(ButtonsType::OkCancel)
+            .modal(true)
+            // .child(&child)
+            .build();
+        let config_clone = config.clone();
+        dialog.connect_response(glib::clone!(@weak dialog => move |_, response| {
+            if response == ResponseType::Ok {
+                let buf = path.buffer();
+                let new_path = path
+                    .buffer()
+                    .text(&buf.start_iter(), &buf.end_iter(), false);
+                config_clone.write().unwrap().encode_path = new_path.to_string();
+                let c = combo.selected();
+                config_clone.write().unwrap().encoder = match c {
+                    0 => Encoder::MP3,
+                    1 => Encoder::OGG,
+                    2 => Encoder::FLAC,
+                    _ => panic!("invalid value"),
+                };
+                let c = config_clone.read().unwrap();
+                confy::store("ripperx4", &*c).unwrap();
+            }
+            dialog.close();
+        }));
+        dialog.show();
+    });
 }
 
 fn handle_disc(title_text: &TextView, data: Arc<RwLock<Data>>, artist_text: &TextView) {
@@ -87,7 +157,14 @@ fn handle_stop(stop_button: Button, ripping: Arc<RwLock<bool>>) {
     });
 }
 
-fn handle_scan(scan_button: Button, go_button: Button, title_text: TextView, artist_text: TextView, scroll: Box, data: Arc<RwLock<Data>>) {
+fn handle_scan(
+    scan_button: Button,
+    go_button: Button,
+    title_text: TextView,
+    artist_text: TextView,
+    scroll: Box,
+    data: Arc<RwLock<Data>>,
+) {
     scan_button.connect_clicked(move |_| {
         println!("Scan");
         let result = DiscId::read(Some(DiscId::default_device().as_str()));
@@ -155,7 +232,12 @@ fn handle_scan(scan_button: Button, go_button: Button, title_text: TextView, art
     });
 }
 
-fn handle_go(ripping: Arc<RwLock<bool>>, go_button: Button, status: Statusbar, data: Arc<RwLock<Data>>) {
+fn handle_go(
+    ripping: Arc<RwLock<bool>>,
+    go_button: Button,
+    status: Statusbar,
+    data: Arc<RwLock<Data>>,
+) {
     let ripping_clone2 = ripping.clone();
     go_button.connect_clicked(glib::clone!(@weak status => move |_| {
         let mut ripping = ripping_clone2.write().unwrap();
