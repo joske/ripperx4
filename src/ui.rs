@@ -203,7 +203,7 @@ fn handle_scan(
         let discid = match result {
             Ok(d) => d,
             Err(_) => {
-                // for testing on machine without CDROM drive: hardcode offset of a dire straits disc
+                // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
                 let offsets = [
                     185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
                 ];

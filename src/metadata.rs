@@ -167,6 +167,7 @@ fn parse_data(data: String) -> Disc {
             disc.year = Some(value.parse::<u16>().unwrap());
         }
         if line.starts_with("EXTD") {
+            // little bit awkward, can this be done better?
             let year_matches: Vec<_> = line.match_indices("YEAR:").collect();
             if year_matches.len() > 0 {
                 let index = year_matches[0].0 + 6;

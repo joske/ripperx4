@@ -14,6 +14,7 @@ pub fn main() {
 
     let cfg: Result<Config, ConfyError> = confy::load("ripperx4");
     if cfg.is_err() {
+        // make sure config exists
         let config = Config::default();
         confy::store("ripperx4", config).unwrap();
     }
