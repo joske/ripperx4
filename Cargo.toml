@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-home = "0.5.3"
-glib = "0.15.10"
-gtk = { version = "0.4.7", package = "gtk4", features = ["v4_6"]}
+home = "0.5"
+glib = "0.15"
+gtk = { version = "0.4", package = "gtk4", features = ["v4_6"]}
 gstreamer = "0.18"
 discid = "0.4"
-confy = "0.4.0"
-syn = "1.0.93"
+confy = "0.4"
+syn = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 
 [build-dependencies]
-gtk = { version = "0.4.7", package = "gtk4", features = ["v4_6"]}
+gtk = { version = "0.4", package = "gtk4", features = ["v4_6"]}
