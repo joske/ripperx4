@@ -5,7 +5,7 @@
   <requires lib="gtk" version="4.0" />
   <object class="GtkApplicationWindow" id="window">
     <property name="default-height">600</property>
-    <property name="default-width">400</property>
+    <property name="default-width">500</property>
     <child>
       <object class="GtkBox">
         <property name="orientation">vertical</property>
@@ -13,12 +13,12 @@
         <child>
           <object class="GtkBox">
             <property name="hexpand">True</property>
+            <property name="height_request">60</property>
             <child>
               <object class="GtkImage">
-                <property name="visible">true</property>
                 <property name="resource">/xpms/ripperX.xpm</property>
+                <property name="height_request">60</property>
                 <property name="hexpand">True</property>
-                <property name="icon_size">1</property>
               </object>
             </child>
             <child>
@@ -63,14 +63,14 @@
                     </child>
                   </object>
                 </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkButton" id="exit">
                 <child>
-                  <object class="GtkImage">
-                    <property name="resource">/xpms/exit.xpm</property>
-                    <property name="hexpand">True</property>
+                  <object class="GtkButton" id="exit">
+                    <child>
+                      <object class="GtkImage">
+                        <property name="resource">/xpms/exit.xpm</property>
+                        <property name="hexpand">True</property>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>
@@ -97,7 +97,26 @@
                     <property name="spacing">10</property>
                     <child>
                       <object class="GtkLabel">
-                        <property name="label">Disc Title</property>
+                        <property name="label">Artist</property>
+                        <property name="xalign">0</property>
+                        <property name="width_request">100</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkTextView" id="disc_artist">
+                        <property name="hexpand">True</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkBox">
+                    <property name="hexpand">True</property>
+                    <property name="orientation">horizontal</property>
+                    <property name="spacing">10</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label">Album</property>
                         <property name="xalign">0</property>
                         <property name="width_request">100</property>
                       </object>
@@ -116,13 +135,25 @@
                     <property name="spacing">10</property>
                     <child>
                       <object class="GtkLabel">
-                        <property name="label">Disc Artist</property>
+                        <property name="label">Year</property>
                         <property name="xalign">0</property>
                         <property name="width_request">100</property>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkTextView" id="disc_artist">
+                      <object class="GtkTextView" id="year">
+                        <property name="width_request">100</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label">Genre</property>
+                        <property name="xalign">0</property>
+                        <property name="width_request">80</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkTextView" id="genre">
                         <property name="hexpand">True</property>
                       </object>
                     </child>

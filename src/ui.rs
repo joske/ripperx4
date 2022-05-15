@@ -40,7 +40,7 @@ pub fn build_ui(app: &Application) {
     builder
         .add_from_resource("/ripperx4.ui")
         .expect("failed to load UI");
-
+    
     let window: ApplicationWindow = builder.object("window").unwrap();
     window.set_application(Some(app));
     window.present();
@@ -52,6 +52,8 @@ pub fn build_ui(app: &Application) {
 
     let title_text: TextView = builder.object("disc_title").unwrap();
     let artist_text: TextView = builder.object("disc_artist").unwrap();
+    let year_text: TextView = builder.object("year").unwrap();
+    let genre_text: TextView = builder.object("genre").unwrap();
     handle_disc(&title_text, data.clone(), &artist_text);
 
     let go_button: Button = builder.object("go_button").unwrap();
@@ -62,6 +64,8 @@ pub fn build_ui(app: &Application) {
         go_button.clone(),
         title_text,
         artist_text,
+        year_text,
+        genre_text,
         scroll,
         data.clone(),
     );
@@ -188,6 +192,8 @@ fn handle_scan(
     go_button: Button,
     title_text: TextView,
     artist_text: TextView,
+    year_text: TextView,
+    genre_text: TextView,
     scroll: Box,
     data: Arc<RwLock<Data>>,
 ) {
@@ -212,6 +218,12 @@ fn handle_scan(
             println!("disc:{}", disc.title);
             title_text.buffer().set_text(&disc.title.clone().as_str());
             artist_text.buffer().set_text(&disc.artist.clone().as_str());
+            if (&disc).year.is_some() {
+                year_text.buffer().set_text(&(&disc).year.unwrap().to_string());
+            }
+            if (&disc).genre.is_some() {
+                genre_text.buffer().set_text(&disc.genre.clone().unwrap().clone().as_str());
+            }
             data.write().unwrap().disc = Some(disc);
             // here we know how many tracks there are
             let tracks = discid.last_track_num() - discid.first_track_num() + 1;

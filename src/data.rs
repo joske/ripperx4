@@ -29,7 +29,8 @@ impl std::default::Default for Config {
 pub struct Disc {
     pub title: String,
     pub artist: String,
-    pub year: u16,
+    pub year: Option<u16>,
+    pub genre: Option<String>,
     pub tracks: Vec<Track>
 }
 #[derive(Default, Debug)]

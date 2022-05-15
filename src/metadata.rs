@@ -86,7 +86,8 @@ fn cddb_query(stream: &mut TcpStream, cmd: String, discid: &DiscId) -> Result<Di
             if response.starts_with("200") {
                 // exact match
                 let category = response.split(" ").nth(1).unwrap();
-                let disc = cddb_read(category, discid.freedb_id().as_str(), stream);
+                let mut disc = cddb_read(category, discid.freedb_id().as_str(), stream);
+                disc.genre = Some(category.to_owned());
                 stream.shutdown(Shutdown::Both).unwrap();
                 return Ok(disc);
             } else if response.starts_with("211") {
@@ -96,7 +97,8 @@ fn cddb_query(stream: &mut TcpStream, cmd: String, discid: &DiscId) -> Result<Di
                 let mut split = response.split(" ");
                 let category = split.next().unwrap();
                 let discid = split.next().unwrap();
-                let disc = cddb_read(category, discid, stream);
+                let mut disc = cddb_read(category, discid, stream);
+                disc.genre = Some(category.to_owned());
                 stream.shutdown(Shutdown::Both).unwrap();
                 return Ok(disc);
             } else {
@@ -162,7 +164,19 @@ fn parse_data(data: String) -> Disc {
         }
         if line.starts_with("DYEAR") {
             let value = line.split("=").nth(1).unwrap();
-            disc.year = value.parse::<u16>().unwrap();
+            disc.year = Some(value.parse::<u16>().unwrap());
+        }
+        if line.starts_with("EXTD") {
+            let year_matches: Vec<_> = line.match_indices("YEAR:").collect();
+            if year_matches.len() > 0 {
+                let index = year_matches[0].0 + 6;
+                let value = line.split_at(index).1;
+                let space_matches: Vec<_> = value.match_indices(" ").collect();
+                if space_matches.len() > 0 {
+                    let value = value.split_at(space_matches[0].0).0;
+                    disc.year = Some(value.parse::<u16>().unwrap());
+                }
+            }
         }
         if line.starts_with("TTITLE") {
             let mut track = Track {
@@ -184,7 +198,7 @@ mod test {
     use crate::metadata::freedb;
 
     #[test]
-    fn test_freedb() {
+    fn test_gnudb() {
         let offsets = [
             185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
         ];
@@ -193,5 +207,112 @@ mod test {
         println!("mb id: {}", discid.id());
         let disc = freedb(&discid);
         assert!(disc.is_ok());
+    }
+
+    #[test]
+    fn test_parse() {
+        let input = r"# xmcd
+#
+# Track frame offsets:
+#	150
+#	25075
+#	46501
+#	70596
+#	88533
+#	105910
+#	125169
+#	147365
+#	162906
+#	190441
+#	215174
+#
+# Disc length: 3186 seconds
+#
+# Revision: 2
+# Processed by: cddbd v1.5.1PL2 Copyright (c) Steve Scherf et al.
+# Submitted via: audiograbber 1.83.01
+#
+DISCID=940c700b
+DTITLE=Rammstein+Sixtynine / (black) Mutter
+DYEAR=2002
+DGENRE=Industrial Metal
+TTITLE0=Mein Herz Brennt (Nun Liebe Kinder Mix)
+TTITLE1=Links 234 (Zwei Drei Vier Mix)
+TTITLE2=Sonne (Laut Bis Zehn Mix)
+TTITLE3=Ich Will (Ich Will Mix)
+TTITLE4=Feuer Frei (Bang Bang Mein Ungluck Mix)
+TTITLE5=Mutter (Violin Mix)
+TTITLE6=Spieluhr (Ein Kleiner Mensch  Mix)
+TTITLE7=Zwitter (Zwitter Zwitter Mix)
+TTITLE8=Rein Raus (Raus Motherfucker Rein Mix)
+TTITLE9=Adios (Er Hat Die Augen Aufgemacht Mix)
+TTITLE10=Nebel (Eng Umschlungen Mix)
+EXTD=
+EXTT0=
+EXTT1=
+EXTT2=
+EXTT3=
+EXTT4=
+EXTT5=
+EXTT6=
+EXTT7=
+EXTT8=
+EXTT9=
+EXTT10=
+PLAYORDER=".to_owned();
+        let disc = super::parse_data(input);
+        assert_eq!(disc.year.unwrap(), 2002 as u16);
+        assert_eq!(disc.title, "(black) Mutter");
+    }
+
+    #[test]
+    fn test_extd() {
+        let input = r"# xmcd
+#
+# Track frame offsets:
+#	150
+#	18051
+#	42248
+#	57183
+#	75952
+#	89333
+#	114384
+#	142453
+#	163641
+#
+# Disc length: 2476 seconds
+#
+# Revision: 7
+# Processed by: cddbd v1.4PL0 Copyright (c) Steve Scherf et al.
+# Submitted via: EasyCDDAExtractor 5.1.0
+#
+DISCID=6909aa09
+DTITLE=DIRE STRAITS / Dire Straits
+DYEAR=1978
+DGENRE=Rock
+TTITLE0=Down to the waterline
+TTITLE1=Water of love
+TTITLE2=Setting me up
+TTITLE3=Six blade knife
+TTITLE4=Southbound again
+TTITLE5=Sultans of swing
+TTITLE6=In the gallery
+TTITLE7=Wild west end
+TTITLE8=Lions
+EXTD= YEAR: 1978 ID3G: 17
+EXTT0=
+EXTT1=
+EXTT2=
+EXTT3=
+EXTT4=
+EXTT5=
+EXTT6=
+EXTT7=
+EXTT8=
+PLAYORDER=".to_owned();
+        let disc = super::parse_data(input);
+        assert_eq!(disc.year.unwrap(), 1978 as u16);
+        assert_eq!(disc.genre.unwrap(),"rock");
+        assert_eq!(disc.title, "Dire Straits");
     }
 }
