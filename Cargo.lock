@@ -497,7 +497,7 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 [[package]]
 name = "gnudb"
 version = "0.1.0"
-source = "git+https://github.com/joske/gnudb#aee629f6353d2026896b35fbd6825a0e0d48b8f4"
+source = "git+https://github.com/joske/gnudb#0263bad4a9d6d5be80a718a2bf23145cb304fd8d"
 dependencies = [
  "discid",
 ]
