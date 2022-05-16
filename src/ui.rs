@@ -23,7 +23,7 @@ use gtk::TextView;
 use gtk::prelude::*;
 
 use discid::DiscId;
-use gnudb::search_disc;
+use gnudb::gnudb;
 
 use crate::data::Config;
 use crate::data::Data;
@@ -214,7 +214,7 @@ fn handle_scan(
         println!("Scanned: {:?}", discid);
         println!("id={}", discid.id());
         println!("freedbid={}", discid.freedb_id());
-        if let Ok(disc) = search_disc(&discid) {
+        if let Ok(disc) = gnudb(&discid) {
             println!("disc:{}", disc.title);
             title_text.buffer().set_text(&disc.title.clone().as_str());
             artist_text.buffer().set_text(&disc.artist.clone().as_str());
