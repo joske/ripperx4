@@ -23,6 +23,8 @@ fn freedb(discid: &DiscId) -> Result<Disc, String> {
             reader.read_line(&mut hello).unwrap();
             let hello = "cddb hello ripperx localhost ripperx 4\n".to_owned();
             send_command(&mut stream, hello).unwrap();
+            let proto = "proto 6\n".to_owned();
+            send_command(&mut stream, proto).unwrap();
             let count = discid.last_track_num() - discid.first_track_num() + 1;
             let mut toc = discid.toc_string();
             toc = toc
@@ -61,7 +63,7 @@ fn send_command(stream: &mut TcpStream, cmd: String) -> Result<String, String> {
     match reader.read_line(&mut response) {
         Ok(_) => {
             println!("response: {}", response);
-            if response.starts_with("200") {
+            if response.starts_with("200") || response.starts_with("201") {
                 Ok(response)
             } else {
                 Err(response)
@@ -166,7 +168,7 @@ fn parse_data(data: String) -> Disc {
             let value = line.split("=").nth(1).unwrap();
             disc.year = Some(value.parse::<u16>().unwrap());
         }
-        if line.starts_with("EXTD") {
+        if disc.year.is_none() && line.starts_with("EXTD") {
             // little bit awkward, can this be done better?
             let year_matches: Vec<_> = line.match_indices("YEAR:").collect();
             if year_matches.len() > 0 {
