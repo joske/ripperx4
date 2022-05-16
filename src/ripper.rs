@@ -6,8 +6,8 @@ use glib::MainLoop;
 use gstreamer::tags::{Album, Artist, Composer, Duration, TrackNumber};
 use gstreamer::*;
 use gstreamer::{prelude::*, tags::Title};
-
-use crate::data::{Disc, Track, Config, Encoder};
+use gnudb::{Disc, Track};
+use crate::data::{Config, Encoder};
 
 pub fn extract(disc: &Disc, status: &glib::Sender<String>, ripping: Arc<RwLock<bool>>) {
     for t in disc.tracks.iter() {

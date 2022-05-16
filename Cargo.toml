@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+gnudb = { git = "https://github.com/joske/gnudb" }
 home = "0.5"
 glib = "0.15"
 gtk = { version = "0.4", package = "gtk4", features = ["v4_6"]}

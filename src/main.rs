@@ -5,7 +5,6 @@ use gtk::prelude::*;
 use gtk::Application;
 
 mod data;
-mod metadata;
 mod ripper;
 mod ui;
 

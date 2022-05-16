@@ -23,11 +23,11 @@ use gtk::TextView;
 use gtk::prelude::*;
 
 use discid::DiscId;
+use gnudb::search_disc;
 
 use crate::data::Config;
 use crate::data::Data;
 use crate::data::Encoder;
-use crate::metadata::search_disc;
 use crate::ripper::extract;
 
 pub fn build_ui(app: &Application) {
