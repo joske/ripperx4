@@ -3,13 +3,12 @@ use std::sync::RwLock;
 use std::thread;
 
 use confy::ConfyError;
-use gtk::Align;
-use gtk::Frame;
-use gtk::Separator;
 use gtk::builders::BoxBuilder;
 use gtk::builders::LabelBuilder;
 use gtk::builders::TextBufferBuilder;
 use gtk::builders::TextViewBuilder;
+use gtk::prelude::*;
+use gtk::Align;
 use gtk::Application;
 use gtk::ApplicationWindow;
 use gtk::Box;
@@ -17,10 +16,11 @@ use gtk::Builder;
 use gtk::Button;
 use gtk::Dialog;
 use gtk::DropDown;
+use gtk::Frame;
 use gtk::Orientation;
+use gtk::Separator;
 use gtk::Statusbar;
 use gtk::TextView;
-use gtk::prelude::*;
 
 use discid::DiscId;
 
@@ -39,7 +39,7 @@ pub fn build_ui(app: &Application) {
     builder
         .add_from_resource("/ripperx4.ui")
         .expect("failed to load UI");
-    
+
     let window: ApplicationWindow = builder.object("window").unwrap();
     window.set_application(Some(app));
     window.present();
@@ -79,10 +79,7 @@ fn handle_config(config_button: Button) {
             .hexpand(true)
             .vexpand(true)
             .build();
-        let path = TextView::builder()
-            .visible(true)
-            .hexpand(true)
-            .build();
+        let path = TextView::builder().visible(true).hexpand(true).build();
         path.buffer()
             .set_text(config.read().unwrap().encode_path.as_str());
         child.append(&path);
@@ -95,9 +92,7 @@ fn handle_config(config_button: Button) {
         };
         combo.set_selected(selected);
         child.append(&combo);
-        let separator = Separator::builder()
-            .vexpand(true)
-            .build();
+        let separator = Separator::builder().vexpand(true).build();
         child.append(&separator);
         let button_box = Box::builder()
             .orientation(Orientation::Horizontal)
@@ -169,6 +164,12 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, builder: Builder) {
         let mut ripping = ripping.write().unwrap();
         if *ripping {
             *ripping = false;
+            let stop_button: Button = builder.object("stop_button").unwrap();
+            stop_button.set_sensitive(false);
+            let go_button: Button = builder.object("go_button").unwrap();
+            go_button.set_sensitive(true); //
+            let scan_button: Button = builder.object("scan_button").unwrap();
+            scan_button.set_sensitive(true);
         }
     });
 }
@@ -205,10 +206,14 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
             title_text.buffer().set_text(&disc.title.clone().as_str());
             artist_text.buffer().set_text(&disc.artist.clone().as_str());
             if (&disc).year.is_some() {
-                year_text.buffer().set_text(&(&disc).year.unwrap().to_string());
+                year_text
+                    .buffer()
+                    .set_text(&(&disc).year.unwrap().to_string());
             }
             if (&disc).genre.is_some() {
-                genre_text.buffer().set_text(&disc.genre.clone().unwrap().clone().as_str());
+                genre_text
+                    .buffer()
+                    .set_text(&disc.genre.clone().unwrap().clone().as_str());
             }
             data.write().unwrap().disc = Some(disc);
             // here we know how many tracks there are
@@ -265,6 +270,10 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: B
         let mut ripping = ripping_arc.write().unwrap();
         if !*ripping {
             stop_button.set_sensitive(true);
+            let go_button: Button = builder.object("go_button").unwrap();
+            go_button.set_sensitive(false);
+            let scan_button: Button = builder.object("scan_button").unwrap();
+            scan_button.set_sensitive(false);
             *ripping = true;
             let context_id = status.context_id("foo");
             let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
@@ -277,11 +286,17 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: B
                     let _ = tx.send("done".to_owned());
                 };
             }));
+            let scan_button_clone = scan_button.clone();
+            let go_button_clone = go_button.clone();
+            let stop_button_clone = stop_button.clone();
             rx.attach(None, move |value| match value {
                 s => {
                     status.pop(context_id);
                     status.push(context_id, s.as_str());
-                    if s == "done" {
+                    if s == "done" {                        
+                        scan_button_clone.set_sensitive(true);
+                        go_button_clone.set_sensitive(true);
+                        stop_button_clone.set_sensitive(false);
                         return glib::Continue(false);
                     }
                     glib::Continue(true)
