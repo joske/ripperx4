@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use confy::ConfyError;
 use glib::MainLoop;
-use gstreamer::tags::{Album, Artist, Composer, Duration, TrackNumber};
+use gstreamer::tags::{Album, Artist, Composer, Duration, TrackNumber, Date};
 use gstreamer::*;
 use gstreamer::{prelude::*, tags::Title};
 use gnudb::{Disc, Track};
@@ -117,6 +117,10 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
         tags.add::<Artist>(&track.artist.as_str(), TagMergeMode::ReplaceAll);
         tags.add::<TrackNumber>(&track.number, TagMergeMode::ReplaceAll);
         tags.add::<Album>(&disc.title.as_str(), TagMergeMode::ReplaceAll);
+        if disc.year.is_some() {
+            let date = glib::Date::from_dmy(1, glib::DateMonth::January, disc.year.unwrap()).unwrap();
+            tags.add::<Date>(&date, TagMergeMode::ReplaceAll);
+        }
         tags.add::<Duration>(
             &(ClockTime::SECOND * track.duration),
             TagMergeMode::ReplaceAll,

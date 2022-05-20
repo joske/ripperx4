@@ -49,34 +49,18 @@ pub fn build_ui(app: &Application) {
         window.close();
     });
 
-    let title_text: TextView = builder.object("disc_title").unwrap();
-    let artist_text: TextView = builder.object("disc_artist").unwrap();
-    let year_text: TextView = builder.object("year").unwrap();
-    let genre_text: TextView = builder.object("genre").unwrap();
-    handle_disc(&title_text, data.clone(), &artist_text);
+    handle_disc(data.clone(), builder.clone());
 
-    let go_button: Button = builder.object("go_button").unwrap();
-    let scroll: Box = builder.object("scroll").unwrap();
-    let scan_button: Button = builder.object("scan_button").unwrap();
-    handle_scan(
-        scan_button,
-        go_button.clone(),
-        title_text,
-        artist_text,
-        year_text,
-        genre_text,
-        scroll,
-        data.clone(),
-    );
+    handle_scan(data.clone(), builder.clone());
 
     let config_button: Button = builder.object("config_button").unwrap();
     handle_config(config_button);
 
     let stop_button: Button = builder.object("stop_button").unwrap();
-    handle_stop(stop_button, ripping.clone());
+    stop_button.set_sensitive(false);
+    handle_stop(ripping.clone(), builder.clone());
 
-    let status: Statusbar = builder.object("statusbar").unwrap();
-    handle_go(ripping, go_button, status, data.clone());
+    handle_go(ripping.clone(), data.clone(), builder.clone());
 }
 
 fn handle_config(config_button: Button) {
@@ -157,7 +141,9 @@ fn handle_config(config_button: Button) {
     });
 }
 
-fn handle_disc(title_text: &TextView, data: Arc<RwLock<Data>>, artist_text: &TextView) {
+fn handle_disc(data: Arc<RwLock<Data>>, builder: Builder) {
+    let title_text: TextView = builder.object("disc_title").unwrap();
+    let artist_text: TextView = builder.object("disc_artist").unwrap();
     let title_buffer = title_text.buffer();
     let data_title = data.clone();
     title_buffer.connect_changed(glib::clone!(@weak title_buffer => move |_| {
@@ -176,7 +162,8 @@ fn handle_disc(title_text: &TextView, data: Arc<RwLock<Data>>, artist_text: &Tex
     }));
 }
 
-fn handle_stop(stop_button: Button, ripping: Arc<RwLock<bool>>) {
+fn handle_stop(ripping: Arc<RwLock<bool>>, builder: Builder) {
+    let stop_button: Button = builder.object("stop_button").unwrap();
     stop_button.connect_clicked(move |_| {
         println!("stop");
         let mut ripping = ripping.write().unwrap();
@@ -186,16 +173,14 @@ fn handle_stop(stop_button: Button, ripping: Arc<RwLock<bool>>) {
     });
 }
 
-fn handle_scan(
-    scan_button: Button,
-    go_button: Button,
-    title_text: TextView,
-    artist_text: TextView,
-    year_text: TextView,
-    genre_text: TextView,
-    scroll: Box,
-    data: Arc<RwLock<Data>>,
-) {
+fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
+    let title_text: TextView = builder.object("disc_title").unwrap();
+    let artist_text: TextView = builder.object("disc_artist").unwrap();
+    let year_text: TextView = builder.object("year").unwrap();
+    let genre_text: TextView = builder.object("genre").unwrap();
+    let go_button: Button = builder.object("go_button").unwrap();
+    let scroll: Box = builder.object("scroll").unwrap();
+    let scan_button: Button = builder.object("scan_button").unwrap();
     scan_button.connect_clicked(move |_| {
         println!("Scan");
         let result = DiscId::read(Some(DiscId::default_device().as_str()));
@@ -271,20 +256,19 @@ fn handle_scan(
     });
 }
 
-fn handle_go(
-    ripping: Arc<RwLock<bool>>,
-    go_button: Button,
-    status: Statusbar,
-    data: Arc<RwLock<Data>>,
-) {
-    let ripping_clone2 = ripping.clone();
+fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: Builder) {
+    let go_button: Button = builder.object("go_button").unwrap();
+    go_button.set_sensitive(false);
+    let status: Statusbar = builder.object("statusbar").unwrap();
+    let stop_button: Button = builder.object("stop_button").unwrap();
     go_button.connect_clicked(glib::clone!(@weak status => move |_| {
-        let mut ripping = ripping_clone2.write().unwrap();
+        let mut ripping = ripping_arc.write().unwrap();
         if !*ripping {
+            stop_button.set_sensitive(true);
             *ripping = true;
             let context_id = status.context_id("foo");
             let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-            let ripping_clone3 = ripping_clone2.clone();
+            let ripping_clone3 = ripping_arc.clone();
             thread::spawn(glib::clone!(@weak data => move || {
                 let data_go = data.clone();
                 if let Some(disc) = &data_go.read().unwrap().disc {
