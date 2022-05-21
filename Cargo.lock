@@ -497,7 +497,8 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 [[package]]
 name = "gnudb"
 version = "0.1.4"
-source = "git+https://github.com/joske/gnudb#773562441d9a4f6ea803f8377fd6f4f6b643b456"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1634091de36e296fe6a86626d4021b0c3e41389ceb7319f7734a694f5a0ba49a"
 dependencies = [
  "discid",
 ]
