@@ -3,24 +3,13 @@ use std::sync::RwLock;
 use std::thread;
 
 use confy::ConfyError;
-use gtk::builders::BoxBuilder;
-use gtk::builders::LabelBuilder;
-use gtk::builders::TextBufferBuilder;
-use gtk::builders::TextViewBuilder;
+use glib::MainContext;
+use gnudb::Match;
+use gtk::builders::{BoxBuilder, LabelBuilder};
+use gtk::builders::{TextBufferBuilder, TextViewBuilder};
 use gtk::prelude::*;
-use gtk::Align;
-use gtk::Application;
-use gtk::ApplicationWindow;
-use gtk::Box;
-use gtk::Builder;
-use gtk::Button;
-use gtk::Dialog;
-use gtk::DropDown;
-use gtk::Frame;
-use gtk::Orientation;
-use gtk::Separator;
-use gtk::Statusbar;
-use gtk::TextView;
+use gtk::{Label, ListBox,Align, Application,ApplicationWindow, Box};
+use gtk::{Builder, Button,Dialog, DropDown, Frame, Orientation,TextView, Separator, Statusbar};
 
 use discid::DiscId;
 
@@ -174,15 +163,37 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, builder: Builder) {
     });
 }
 
-fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
-    let title_text: TextView = builder.object("disc_title").unwrap();
-    let artist_text: TextView = builder.object("disc_artist").unwrap();
-    let year_text: TextView = builder.object("year").unwrap();
-    let genre_text: TextView = builder.object("genre").unwrap();
-    let go_button: Button = builder.object("go_button").unwrap();
-    let scroll: Box = builder.object("scroll").unwrap();
+fn handle_multi_match(matches: &Vec<Match>) -> Option<&Match> {
+    let child = ListBox::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .build();
+    let dialog = Dialog::builder()
+        .title("Configuration")
+        .modal(true)
+        .child(&child)
+        .width_request(300)
+        .build();
+    for ref m in matches {
+        let path = Label::builder().hexpand(true).label(format!("{} / {}", m.title, m.artist).as_str()).build();
+        child.append(&path);
+    }
+    dialog.show();
+    None
+}
+
+async fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
     let scan_button: Button = builder.object("scan_button").unwrap();
     scan_button.connect_clicked(move |_| {
+        let main_context = MainContext::default();
+        // The main loop executes the asynchronous block
+        main_context.spawn_local(glib::clone!(@weak builder, @weak data => async move {
+            let title_text: TextView = builder.object("disc_title").unwrap();
+            let artist_text: TextView = builder.object("disc_artist").unwrap();
+            let year_text: TextView = builder.object("year").unwrap();
+            let genre_text: TextView = builder.object("genre").unwrap();
+            let go_button: Button = builder.object("go_button").unwrap();
+            let scroll: Box = builder.object("scroll").unwrap();
         println!("Scan");
         let result = DiscId::read(Some(DiscId::default_device().as_str()));
         let discid = match result {
@@ -199,9 +210,17 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
         println!("Scanned: {:?}", discid);
         println!("id={}", discid.id());
         println!("freedbid={}", discid.freedb_id());
-        let mut con = gnudb::Connection::new().unwrap();
-        let matches = con.query(&discid).unwrap();
-        if let Ok(disc) = con.read(&matches[0]) {
+        let mut con = gnudb::Connection::new().await.unwrap();
+        let matches = con.query(&discid).await.unwrap();
+        let mut single_match = &matches[0];
+        if matches.len() > 1 {
+            let chosen = handle_multi_match(&matches);
+            if chosen.is_some()  {
+                println!("chosen: {:?}", chosen);
+                single_match = chosen.unwrap();
+            }
+        }
+        if let Ok(disc) = con.read(single_match).await {
             println!("disc:{}", disc.title);
             title_text.buffer().set_text(&disc.title.clone().as_str());
             artist_text.buffer().set_text(&disc.artist.clone().as_str());
@@ -257,8 +276,9 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
             }
             scroll.show();
         }
-        go_button.set_sensitive(true);
-    });
+        go_button.set_sensitive(true);    
+    }));
+});
 }
 
 fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: Builder) {
@@ -293,7 +313,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: B
                 s => {
                     status.pop(context_id);
                     status.push(context_id, s.as_str());
-                    if s == "done" {                        
+                    if s == "done" {
                         scan_button_clone.set_sensitive(true);
                         go_button_clone.set_sensitive(true);
                         stop_button_clone.set_sensitive(false);
