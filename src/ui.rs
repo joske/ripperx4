@@ -19,6 +19,7 @@ use gtk::Dialog;
 use gtk::DropDown;
 use gtk::Frame;
 use gtk::MessageDialog;
+use gtk::MessageType;
 use gtk::Orientation;
 use gtk::Separator;
 use gtk::Statusbar;
@@ -190,6 +191,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
         let discid = match result {
             Ok(d) => d,
             Err(_) => {
+                show_message("Disc not found!", MessageType::Error);
                 // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
                 let offsets = [
                     185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
@@ -261,20 +263,25 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
                 scroll.show();
             }
         } else {
-            let dialog = MessageDialog::builder()
-                .title("Error")
-                .modal(true)
-                .buttons(ButtonsType::Ok)
-                .text("Disc not found")
-                .width_request(300)
-                .build();
-            dialog.connect_response(glib::clone!(@weak dialog => move |_, _| {
-                dialog.close();
-            }));
-            dialog.show();
+            show_message("Disc not found!", MessageType::Error);
         }
         go_button.set_sensitive(true);
     });
+}
+
+fn show_message(message: &str, typ: MessageType) {
+    let dialog = MessageDialog::builder()
+        .title("Error")
+        .modal(true)
+        .buttons(ButtonsType::Ok)
+        .message_type(typ)
+        .text(message)
+        .width_request(300)
+        .build();
+    dialog.connect_response(glib::clone!(@weak dialog => move |_, _| {
+        dialog.close();
+    }));
+    dialog.show();
 }
 
 fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: Builder) {
