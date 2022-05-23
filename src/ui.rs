@@ -14,9 +14,11 @@ use gtk::ApplicationWindow;
 use gtk::Box;
 use gtk::Builder;
 use gtk::Button;
+use gtk::ButtonsType;
 use gtk::Dialog;
 use gtk::DropDown;
 use gtk::Frame;
+use gtk::MessageDialog;
 use gtk::Orientation;
 use gtk::Separator;
 use gtk::Statusbar;
@@ -201,61 +203,75 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
         println!("freedbid={}", discid.freedb_id());
         let mut con = gnudb::Connection::new().unwrap();
         let matches = con.query(&discid).unwrap();
-        if let Ok(disc) = con.read(&matches[0]) {
-            println!("disc:{}", disc.title);
-            title_text.buffer().set_text(&disc.title.clone().as_str());
-            artist_text.buffer().set_text(&disc.artist.clone().as_str());
-            if (&disc).year.is_some() {
-                year_text
-                    .buffer()
-                    .set_text(&(&disc).year.unwrap().to_string());
-            }
-            if (&disc).genre.is_some() {
-                genre_text
-                    .buffer()
-                    .set_text(&disc.genre.clone().unwrap().clone().as_str());
-            }
-            data.write().unwrap().disc = Some(disc);
-            // here we know how many tracks there are
-            let tracks = discid.last_track_num() - discid.first_track_num() + 1;
-            for i in 0..tracks {
-                let hbox = BoxBuilder::new()
-                    .orientation(Orientation::Horizontal)
-                    .vexpand(false)
-                    .hexpand(true)
-                    .spacing(50)
-                    .build();
-                let label_text = format!("Track {}", i + 1);
-                let label = LabelBuilder::new().label(&label_text).build();
-                hbox.append(&label);
+        if matches.len() > 0 {
+            if let Ok(disc) = con.read(&matches[0]) {
+                println!("disc:{}", disc.title);
+                title_text.buffer().set_text(&disc.title.clone().as_str());
+                artist_text.buffer().set_text(&disc.artist.clone().as_str());
+                if (&disc).year.is_some() {
+                    year_text
+                        .buffer()
+                        .set_text(&(&disc).year.unwrap().to_string());
+                }
+                if (&disc).genre.is_some() {
+                    genre_text
+                        .buffer()
+                        .set_text(&disc.genre.clone().unwrap().clone().as_str());
+                }
+                data.write().unwrap().disc = Some(disc);
+                // here we know how many tracks there are
+                let tracks = discid.last_track_num() - discid.first_track_num() + 1;
+                for i in 0..tracks {
+                    let hbox = BoxBuilder::new()
+                        .orientation(Orientation::Horizontal)
+                        .vexpand(false)
+                        .hexpand(true)
+                        .spacing(50)
+                        .build();
+                    let label_text = format!("Track {}", i + 1);
+                    let label = LabelBuilder::new().label(&label_text).build();
+                    hbox.append(&label);
 
-                let r = data.read().unwrap();
-                let d = r.disc.as_ref().unwrap();
-                let title = d.tracks[i as usize].title.as_str();
-                let buffer = TextBufferBuilder::new().text(&title).build();
-                let name = format!("{}", i);
-                let tb = TextViewBuilder::new()
-                    .name(&name)
-                    .buffer(&buffer)
-                    .hexpand(true)
-                    .build();
-                let data_changed = data.clone();
-                buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
-                    let mut r = data_changed.write().unwrap();
-                    let ref mut d = r.disc.as_mut().unwrap();
-                    let tracks = &mut d.tracks;
-                    let mut track = &mut tracks[i as usize];
-                    let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
-                    println!("{}", &text);
-                    track.title = text.to_string();
-                    println!("{}", &track.title);
-                }));
-                hbox.append(&tb);
-                tb.show();
-                scroll.append(&hbox);
-                hbox.show();
+                    let r = data.read().unwrap();
+                    let d = r.disc.as_ref().unwrap();
+                    let title = d.tracks[i as usize].title.as_str();
+                    let buffer = TextBufferBuilder::new().text(&title).build();
+                    let name = format!("{}", i);
+                    let tb = TextViewBuilder::new()
+                        .name(&name)
+                        .buffer(&buffer)
+                        .hexpand(true)
+                        .build();
+                    let data_changed = data.clone();
+                    buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
+                        let mut r = data_changed.write().unwrap();
+                        let ref mut d = r.disc.as_mut().unwrap();
+                        let tracks = &mut d.tracks;
+                        let mut track = &mut tracks[i as usize];
+                        let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+                        println!("{}", &text);
+                        track.title = text.to_string();
+                        println!("{}", &track.title);
+                    }));
+                    hbox.append(&tb);
+                    tb.show();
+                    scroll.append(&hbox);
+                    hbox.show();
+                }
+                scroll.show();
             }
-            scroll.show();
+        } else {
+            let dialog = MessageDialog::builder()
+                .title("Error")
+                .modal(true)
+                .buttons(ButtonsType::Ok)
+                .text("Disc not found")
+                .width_request(300)
+                .build();
+            dialog.connect_response(glib::clone!(@weak dialog => move |_, _| {
+                dialog.close();
+            }));
+            dialog.show();
         }
         go_button.set_sensitive(true);
     });
@@ -293,7 +309,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: B
                 s => {
                     status.pop(context_id);
                     status.push(context_id, s.as_str());
-                    if s == "done" {                        
+                    if s == "done" {
                         scan_button_clone.set_sensitive(true);
                         go_button_clone.set_sensitive(true);
                         stop_button_clone.set_sensitive(false);
