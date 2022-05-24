@@ -164,7 +164,10 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, builder: Builder) {
 }
 
 fn handle_multi_match(matches: &Vec<Match>) -> Option<&Match> {
-    let child = ListBox::builder().hexpand(true).vexpand(true).build();
+    let child = Box::builder().orientation(Orientation::Vertical).build();
+    let list = ListBox::builder().hexpand(true).vexpand(true).build();
+    let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+    child.append(&list);
     let dialog = Dialog::builder()
         .title("Configuration")
         .modal(true)
@@ -176,8 +179,25 @@ fn handle_multi_match(matches: &Vec<Match>) -> Option<&Match> {
             .hexpand(true)
             .label(format!("{} / {}", m.title, m.artist).as_str())
             .build();
-        child.append(&path);
+        list.append(&path);
     }
+    let buttons = Box::builder().orientation(Orientation::Horizontal).build();
+    let ok = Button::builder().label("Ok").build();
+    buttons.append(&ok);
+    ok.connect_clicked(glib::clone!(@weak dialog => move |_| {
+        let s = list.selected_row();
+        tx.send(s).unwrap();
+        dialog.close();
+    }));
+    child.append(&buttons);
+    rx.attach(None, move |s| {
+        if s.is_some() {
+            let i = s.unwrap().index();
+            println!("selected index: {}", i);
+            return glib::Continue(false);
+        }
+        glib::Continue(true)
+    });
     dialog.show();
     None
 }
@@ -201,7 +221,8 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
                 Err(_) => {
                     // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
                     let offsets = [
-                        185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
+                        186755, 150, 18230, 42558, 57591, 76417, 89846, 115065, 143250, 164582,
+                        //185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
                     ];
                     DiscId::put(1, &offsets).unwrap()
                 }
