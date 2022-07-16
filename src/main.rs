@@ -7,6 +7,7 @@ use gtk::Application;
 mod data;
 mod ripper;
 mod ui;
+mod musicbrainz;
 
 pub fn main() {
     resources_register_include!("ripperx4.gresource").expect("Failed to register resources.");
