@@ -548,15 +548,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
-name = "gnudb"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1634091de36e296fe6a86626d4021b0c3e41389ceb7319f7734a694f5a0ba49a"
-dependencies = [
- "discid",
-]
-
-[[package]]
 name = "gobject-sys"
 version = "0.15.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1128,7 +1119,6 @@ dependencies = [
  "confy",
  "discid",
  "glib",
- "gnudb",
  "gstreamer",
  "gtk4",
  "home",

@@ -191,10 +191,10 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
         let discid = match result {
             Ok(d) => d,
             Err(_) => {
-                show_message("Disc not found!", MessageType::Error);
+                // show_message("Disc not found!", MessageType::Error);
                 // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
                 let offsets = [
-                    185700, 150, 18051, 42248, 57183, 75952, 89333, 114384, 142453, 163641,
+                    298948, 183, 26155, 44233, 64778, 80595, 117410, 144120, 159913, 178520, 204803, 258763, 277218
                 ];
                 DiscId::put(1, &offsets).unwrap()
             }
@@ -202,66 +202,61 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
 
         println!("Scanned: {:?}", discid);
         println!("id={}", discid.id());
-        println!("freedbid={}", discid.freedb_id());
-        let mut con = gnudb::Connection::new().unwrap();
-        let matches = con.query(&discid).unwrap();
-        if matches.len() > 0 {
-            if let Ok(disc) = con.read(&matches[0]) {
-                println!("disc:{}", disc.title);
-                title_text.buffer().set_text(&disc.title.clone().as_str());
-                artist_text.buffer().set_text(&disc.artist.clone().as_str());
-                if (&disc).year.is_some() {
-                    year_text
-                        .buffer()
-                        .set_text(&(&disc).year.unwrap().to_string());
-                }
-                if (&disc).genre.is_some() {
-                    genre_text
-                        .buffer()
-                        .set_text(&disc.genre.clone().unwrap().clone().as_str());
-                }
-                data.write().unwrap().disc = Some(disc);
-                // here we know how many tracks there are
-                let tracks = discid.last_track_num() - discid.first_track_num() + 1;
-                for i in 0..tracks {
-                    let hbox = BoxBuilder::new()
-                        .orientation(Orientation::Horizontal)
-                        .vexpand(false)
-                        .hexpand(true)
-                        .spacing(50)
-                        .build();
-                    let label_text = format!("Track {}", i + 1);
-                    let label = LabelBuilder::new().label(&label_text).build();
-                    hbox.append(&label);
-
-                    let r = data.read().unwrap();
-                    let d = r.disc.as_ref().unwrap();
-                    let title = d.tracks[i as usize].title.as_str();
-                    let buffer = TextBufferBuilder::new().text(&title).build();
-                    let name = format!("{}", i);
-                    let tb = TextViewBuilder::new()
-                        .name(&name)
-                        .buffer(&buffer)
-                        .hexpand(true)
-                        .build();
-                    let data_changed = data.clone();
-                    buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
-                        let mut r = data_changed.write().unwrap();
-                        let ref mut d = r.disc.as_mut().unwrap();
-                        let tracks = &mut d.tracks;
-                        let mut track = &mut tracks[i as usize];
-                        let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
-                        println!("{}", &text);
-                        track.title = text.to_string();
-                        println!("{}", &track.title);
-                    }));
-                    hbox.append(&tb);
-                    tb.show();
-                    scroll.append(&hbox);
-                    hbox.show();
-                }
-                scroll.show();
+        if let Ok(disc) = crate::musicbrainz::lookup(&discid.id()) {
+            println!("disc:{}", disc.title);
+            title_text.buffer().set_text(&disc.title.clone().as_str());
+            artist_text.buffer().set_text(&disc.artist.clone().as_str());
+            if (&disc).year.is_some() {
+                year_text
+                    .buffer()
+                    .set_text(&(&disc).year.unwrap().to_string());
             }
+            if (&disc).genre.is_some() {
+                genre_text
+                    .buffer()
+                    .set_text(&disc.genre.clone().unwrap().clone().as_str());
+            }
+            data.write().unwrap().disc = Some(disc);
+            // here we know how many tracks there are
+            let tracks = discid.last_track_num() - discid.first_track_num() + 1;
+            for i in 0..tracks {
+                let hbox = BoxBuilder::new()
+                    .orientation(Orientation::Horizontal)
+                    .vexpand(false)
+                    .hexpand(true)
+                    .spacing(50)
+                    .build();
+                let label_text = format!("Track {}", i + 1);
+                let label = LabelBuilder::new().label(&label_text).build();
+                hbox.append(&label);
+
+                let r = data.read().unwrap();
+                let d = r.disc.as_ref().unwrap();
+                let title = d.tracks[i as usize].title.as_str();
+                let buffer = TextBufferBuilder::new().text(&title).build();
+                let name = format!("{}", i);
+                let tb = TextViewBuilder::new()
+                    .name(&name)
+                    .buffer(&buffer)
+                    .hexpand(true)
+                    .build();
+                let data_changed = data.clone();
+                buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
+                    let mut r = data_changed.write().unwrap();
+                    let ref mut d = r.disc.as_mut().unwrap();
+                    let tracks = &mut d.tracks;
+                    let mut track = &mut tracks[i as usize];
+                    let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+                    println!("{}", &text);
+                    track.title = text.to_string();
+                    println!("{}", &track.title);
+                }));
+                hbox.append(&tb);
+                tb.show();
+                scroll.append(&hbox);
+                hbox.show();
+            }
+            scroll.show();
         } else {
             show_message("Disc not found!", MessageType::Error);
         }

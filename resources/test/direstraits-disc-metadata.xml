@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#">
+    <disc id="xA3p59dQpJpDXZYHz1SSQ491oaU-">
+        <sectors>298948</sectors>
+        <offset-list count="12">
+            <offset position="1">183</offset>
+            <offset position="2">26155</offset>
+            <offset position="3">44233</offset>
+            <offset position="4">64778</offset>
+            <offset position="5">80595</offset>
+            <offset position="6">117410</offset>
+            <offset position="7">144120</offset>
+            <offset position="8">159913</offset>
+            <offset position="9">178520</offset>
+            <offset position="10">204803</offset>
+            <offset position="11">258763</offset>
+            <offset position="12">277218</offset>
+        </offset-list>
+        <release-list count="1">
+            <release id="a541c6e6-eb8c-4fb2-b0bb-5c07e89c2182">
+                <title>Money for Nothing</title>
+                <status id="4e304316-386d-3409-af2e-78857eec5cfe">Official</status>
+                <quality>normal</quality>
+                <disambiguation>pink bar code, printed in West Germany</disambiguation>
+                <packaging id="ec27701a-4a22-37f4-bfac-6616e0f9750a">Jewel Case</packaging>
+                <text-representation>
+                    <language>eng</language>
+                    <script>Latn</script>
+                </text-representation>
+                <date>1988-10</date>
+                <country>XE</country>
+                <release-event-list count="1">
+                    <release-event>
+                        <date>1988-10</date>
+                        <area id="89a675c2-3e37-3518-b83c-418bad59a85a">
+                            <name>Europe</name>
+                            <sort-name>Europe</sort-name>
+                            <iso-3166-1-code-list>
+                                <iso-3166-1-code>XE</iso-3166-1-code>
+                            </iso-3166-1-code-list>
+                        </area>
+                    </release-event>
+                </release-event-list>
+                <barcode>042283641921</barcode>
+                <asin>B00002600J</asin>
+                <cover-art-archive>
+                    <artwork>true</artwork>
+                    <count>7</count>
+                    <front>true</front>
+                    <back>true</back>
+                </cover-art-archive>
+                <medium-list count="1">
+                    <medium>
+                        <position>1</position>
+                        <format id="9712d52a-4509-3d4b-a1a2-67c88c643e31">CD</format>
+                        <disc-list count="2">
+                            <disc id="nJu.DNyuhVWANxKUw.mv3E0ZWAE-">
+                                <sectors>298970</sectors>
+                                <offset-list count="12">
+                                    <offset position="1">182</offset>
+                                    <offset position="2">26165</offset>
+                                    <offset position="3">44242</offset>
+                                    <offset position="4">64782</offset>
+                                    <offset position="5">80605</offset>
+                                    <offset position="6">117412</offset>
+                                    <offset position="7">144130</offset>
+                                    <offset position="8">159922</offset>
+                                    <offset position="9">178522</offset>
+                                    <offset position="10">204812</offset>
+                                    <offset position="11">258772</offset>
+                                    <offset position="12">277220</offset>
+                                </offset-list>
+                            </disc>
+                            <disc id="xA3p59dQpJpDXZYHz1SSQ491oaU-">
+                                <sectors>298948</sectors>
+                                <offset-list count="12">
+                                    <offset position="1">183</offset>
+                                    <offset position="2">26155</offset>
+                                    <offset position="3">44233</offset>
+                                    <offset position="4">64778</offset>
+                                    <offset position="5">80595</offset>
+                                    <offset position="6">117410</offset>
+                                    <offset position="7">144120</offset>
+                                    <offset position="8">159913</offset>
+                                    <offset position="9">178520</offset>
+                                    <offset position="10">204803</offset>
+                                    <offset position="11">258763</offset>
+                                    <offset position="12">277218</offset>
+                                </offset-list>
+                            </disc>
+                        </disc-list>
+                        <track-list count="12" />
+                    </medium>
+                </medium-list>
+            </release>
+        </release-list>
+    </disc>
+</metadata>

@@ -1,13 +1,12 @@
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
+use crate::data::{Config, Disc, Encoder, Track};
 use confy::ConfyError;
 use glib::MainLoop;
-use gstreamer::tags::{Album, Artist, Composer, Duration, TrackNumber, Date};
+use gstreamer::tags::{Album, Artist, Composer, Date, Duration, TrackNumber};
 use gstreamer::*;
 use gstreamer::{prelude::*, tags::Title};
-use gnudb::{Disc, Track};
-use crate::data::{Config, Encoder};
 
 pub fn extract(disc: &Disc, status: &glib::Sender<String>, ripping: Arc<RwLock<bool>>) {
     for t in disc.tracks.iter() {
@@ -20,7 +19,12 @@ pub fn extract(disc: &Disc, status: &glib::Sender<String>, ripping: Arc<RwLock<b
     }
 }
 
-fn extract_track(pipeline: Pipeline, title: String, status: &glib::Sender<String>, ripping: Arc<RwLock<bool>>) {
+fn extract_track(
+    pipeline: Pipeline,
+    title: String,
+    status: &glib::Sender<String>,
+    ripping: Arc<RwLock<bool>>,
+) {
     let status_message = format!("encoding {}", title);
     let status_message_clone = status_message.clone();
     status.send(status_message).unwrap();
@@ -48,9 +52,8 @@ fn extract_track(pipeline: Pipeline, title: String, status: &glib::Sender<String
                 let perc = pos.unwrap().value() as f64 / dur.unwrap().value() as f64 * 100.0;
                 let status_message_perc = format!("{} : {:.0} %", status_message_clone, perc);
                 status.send(status_message_perc).unwrap();
-    
-                if pos == dur {
-                }
+
+                if pos == dur {}
             } else {
                 return glib::Continue(false);
             }
@@ -100,11 +103,11 @@ fn extract_track(pipeline: Pipeline, title: String, status: &glib::Sender<String
 }
 
 fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
-    let cfg: Result<Config, ConfyError>  = confy::load("ripperx4");
+    let cfg: Result<Config, ConfyError> = confy::load("ripperx4");
     let config = cfg.unwrap();
 
     gstreamer::init().unwrap();
-    
+
     let cdda = format!("cdda://{}", track.number);
     let extractor = Element::make_from_uri(URIType::Src, cdda.as_str(), Some("cd_src")).unwrap();
     extractor.set_property("read-speed", 0 as i32);
@@ -118,7 +121,8 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
         tags.add::<TrackNumber>(&track.number, TagMergeMode::ReplaceAll);
         tags.add::<Album>(&disc.title.as_str(), TagMergeMode::ReplaceAll);
         if disc.year.is_some() {
-            let date = glib::Date::from_dmy(1, glib::DateMonth::January, disc.year.unwrap()).unwrap();
+            let date =
+                glib::Date::from_dmy(1, glib::DateMonth::January, disc.year.unwrap()).unwrap();
             tags.add::<Date>(&date, TagMergeMode::ReplaceAll);
         }
         tags.add::<Duration>(
@@ -132,18 +136,14 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
     }
 
     let extension = match config.encoder {
-        Encoder::MP3 =>".mp3",
+        Encoder::MP3 => ".mp3",
         Encoder::OGG => ".ogg",
         Encoder::FLAC => ".flac",
     };
 
     let location = format!(
         "{}/{}-{}/{}{}",
-        config.encode_path,
-        disc.artist,
-        disc.title,
-        track.title,
-        extension
+        config.encode_path, disc.artist, disc.title, track.title, extension
     );
     //ensure folder exists
     std::fs::create_dir_all(Path::new(&location).parent().unwrap()).unwrap();
@@ -163,7 +163,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
             let elements = &[&extractor, &enc, &id3, &sink];
             pipeline.add_many(elements).unwrap();
             Element::link_many(elements).unwrap();
-        },
+        }
         Encoder::OGG => {
             let convert = ElementFactory::make("audioconvert", None).unwrap();
             let vorbis = ElementFactory::make("vorbisenc", None).unwrap();
@@ -264,7 +264,12 @@ mod test {
         let sink = ElementFactory::make("filesink", None).unwrap();
         sink.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.ogg");
         let pipeline = Pipeline::new(Some("ripper"));
-        let elements = &[&file, &wav, &bin.dynamic_cast_ref::<Element>().unwrap(), &sink];
+        let elements = &[
+            &file,
+            &wav,
+            &bin.dynamic_cast_ref::<Element>().unwrap(),
+            &sink,
+        ];
         pipeline.add_many(elements).unwrap();
         Element::link_many(elements).unwrap();
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
@@ -280,5 +285,4 @@ mod test {
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track".to_owned(), &tx, ripping);
     }
-
 }
