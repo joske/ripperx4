@@ -121,7 +121,6 @@ mod test {
     fn test_parse_metadata_good() {
         let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
         path.push_str("/resources/test/direstraits-releases-metadata.xml");
-        println!("{}", path);
         let contents = fs::read_to_string(path).unwrap();
         let disc = parse_metadata(contents);
         assert!(disc.is_ok());

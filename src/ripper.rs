@@ -193,6 +193,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
 
 #[cfg(test)]
 mod test {
+    use std::env;
     use std::sync::{Arc, RwLock};
 
     use gstreamer::prelude::*;
@@ -203,13 +204,16 @@ mod test {
     #[test]
     pub fn test_mp3() {
         gstreamer::init().unwrap();
+        let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
+        path.push_str("/resources/test/file_example_WAV_1MG.wav");
+
         let file = ElementFactory::make("filesrc", None).unwrap();
-        file.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.wav");
+        file.set_property("location", path.as_str());
         let wav = ElementFactory::make("wavparse", None).unwrap();
         let encoder = ElementFactory::make("lamemp3enc", None).unwrap();
         let id3 = ElementFactory::make("id3v2mux", None).unwrap();
         let sink = ElementFactory::make("filesink", None).unwrap();
-        sink.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.mp3");
+        sink.set_property("location", "/tmp/file_example_WAV_1MG.mp3");
         let pipeline = Pipeline::new(Some("ripper"));
         let elements = &[&file, &wav, &encoder, &id3, &sink];
         pipeline.add_many(elements).unwrap();
@@ -217,7 +221,6 @@ mod test {
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         rx.attach(None, move |value| match value {
             s => {
-                println!("status: {}", s);
                 if s == "done" {
                     return glib::Continue(false);
                 }
@@ -227,15 +230,18 @@ mod test {
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track".to_owned(), &tx, ripping);
     }
+
     #[test]
     pub fn test_flac() {
         gstreamer::init().unwrap();
+        let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
+        path.push_str("/resources/test/file_example_WAV_1MG.wav");
         let file = ElementFactory::make("filesrc", None).unwrap();
-        file.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.wav");
+        file.set_property("location", path.as_str());
         let wav = ElementFactory::make("wavparse", None).unwrap();
         let encoder = ElementFactory::make("flacenc", None).unwrap();
         let sink = ElementFactory::make("filesink", None).unwrap();
-        sink.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.flac");
+        sink.set_property("location", "/tmp/file_example_WAV_1MG.flac");
         let pipeline = Pipeline::new(Some("ripper"));
         let elements = &[&file, &wav, &encoder, &sink];
         pipeline.add_many(elements).unwrap();
@@ -243,7 +249,6 @@ mod test {
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         rx.attach(None, move |value| match value {
             s => {
-                println!("status: {}", s);
                 if s == "done" {
                     return glib::Continue(false);
                 }
@@ -257,17 +262,23 @@ mod test {
     #[test]
     pub fn test_ogg() {
         gstreamer::init().unwrap();
+        let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
+        path.push_str("/resources/test/file_example_WAV_1MG.wav");
         let file = ElementFactory::make("filesrc", None).unwrap();
-        file.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.wav");
+        file.set_property("location", path.as_str());
         let wav = ElementFactory::make("wavparse", None).unwrap();
-        let bin = parse_bin_from_description("audioconvert ! vorbisenc ! oggmux", false).unwrap();
+        let convert = ElementFactory::make("audioconvert", None).unwrap();
+        let vorbis = ElementFactory::make("vorbisenc", None).unwrap();
+        let mux = ElementFactory::make("oggmux", None).unwrap();
         let sink = ElementFactory::make("filesink", None).unwrap();
-        sink.set_property("location", "/home/jos/Downloads/file_example_WAV_1MG.ogg");
+        sink.set_property("location", "/tmp/file_example_WAV_1MG.ogg");
         let pipeline = Pipeline::new(Some("ripper"));
         let elements = &[
             &file,
             &wav,
-            &bin.dynamic_cast_ref::<Element>().unwrap(),
+            &convert,
+            &vorbis,
+            &mux,
             &sink,
         ];
         pipeline.add_many(elements).unwrap();
@@ -275,7 +286,6 @@ mod test {
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         rx.attach(None, move |value| match value {
             s => {
-                println!("status: {}", s);
                 if s == "done" {
                     return glib::Continue(false);
                 }
