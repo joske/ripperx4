@@ -15,15 +15,13 @@ pub fn lookup(discid: &str) -> Result<Disc, Box<dyn Error>> {
 fn parse_disc(body: String) -> Result<String, Box<dyn Error>> {
     let metadata: minidom::Element = body.parse()?;
     let disc = metadata.children().next();
-    if disc.is_some() {
-        let disc = disc.unwrap();
+    if let Some(disc) = disc {
         let release_list = disc.get_child("release-list", "http://musicbrainz.org/ns/mmd-2.0#");
-        if release_list.is_some() {
+        if let Some(release_list) = release_list {
             let release = release_list
-                .unwrap()
                 .get_child("release", "http://musicbrainz.org/ns/mmd-2.0#");
-            if release.is_some() {
-                let release_id = release.unwrap().attr("id").unwrap();
+            if let Some(release) = release {
+                let release_id = release.attr("id").unwrap();
                 let release = format!(
                     "https://musicbrainz.org/ws/2/release/{}?inc=%20recordings+artist-credits",
                     release_id
@@ -32,14 +30,13 @@ fn parse_disc(body: String) -> Result<String, Box<dyn Error>> {
             }
         }
     }
-    return Err("Failed to parse disc".into());
+    Err("Failed to parse disc".into())
 }
 
 fn parse_metadata(xml: String) -> Result<Disc, Box<dyn Error>> {
     let metadata: minidom::Element = xml.parse()?;
     let release = metadata.children().next();
-    if release.is_some() {
-        let release = release.unwrap();
+    if let Some(release) = release {
         let mut disc = Disc {
             ..Default::default()
         };
@@ -48,7 +45,7 @@ fn parse_metadata(xml: String) -> Result<Disc, Box<dyn Error>> {
             .unwrap()
             .text();
 
-        disc.artist = get_artist(release).unwrap_or("".to_owned());
+        disc.artist = get_artist(release).unwrap_or_else(|| "".to_owned());
 
         let medium_list = release.get_child("medium-list", "http://musicbrainz.org/ns/mmd-2.0#");
         let medium = medium_list.unwrap().children().next().unwrap();
@@ -77,14 +74,14 @@ fn parse_metadata(xml: String) -> Result<Disc, Box<dyn Error>> {
                         .unwrap()
                         .text();
 
-                    dtrack.artist = get_artist(recording).unwrap_or("".to_owned());
+                    dtrack.artist = get_artist(recording).unwrap_or_else(|| "".to_owned());
                 }
             }
             disc.tracks.push(dtrack);
         }
         return Ok(disc);
     }
-    return Err("Failed to parse metadata".into());
+    Err("Failed to parse metadata".into())
 }
 
 fn get_artist(element: &Element) -> Option<String> {
@@ -92,11 +89,11 @@ fn get_artist(element: &Element) -> Option<String> {
     let name_credit =
         artist_credit.get_child("name-credit", "http://musicbrainz.org/ns/mmd-2.0#")?;
     let artist = name_credit.get_child("artist", "http://musicbrainz.org/ns/mmd-2.0#")?;
-    return Some(
+    Some(
         artist
             .get_child("name", "http://musicbrainz.org/ns/mmd-2.0#")?
             .text(),
-    );
+    )
 }
 
 #[cfg(test)]

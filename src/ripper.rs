@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use crate::data::{Config, Disc, Encoder, Track};
 use confy::ConfyError;
 use glib::MainLoop;
+use gstreamer::format::Percent;
 use gstreamer::tags::{Album, Artist, Composer, Date, Duration, TrackNumber};
 use gstreamer::*;
 use gstreamer::{prelude::*, tags::Title};
@@ -49,7 +50,7 @@ fn extract_track(
             let pos = pipeline.query_position_generic(Format::Percent);
             let dur = pipeline.query_duration_generic(Format::Percent);
             if pos.is_some() && dur.is_some() {
-                let perc = pos.unwrap().value() as f64 / dur.unwrap().value() as f64 * 100.0;
+                let perc = pos.unwrap_or(GenericFormattedValue::Percent(Some(Percent(0)))).value() as f64 / dur.unwrap_or(GenericFormattedValue::Percent(Some(Percent(1)))).value() as f64 * 100.0;
                 let status_message_perc = format!("{} : {:.0} %", status_message_clone, perc);
                 status.send(status_message_perc).unwrap();
 
@@ -58,7 +59,7 @@ fn extract_track(
                 return glib::Continue(false);
             }
         }
-        return glib::Continue(true);
+        glib::Continue(true)
     });
 
     let bus = pipeline
@@ -110,7 +111,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
 
     let cdda = format!("cdda://{}", track.number);
     let extractor = Element::make_from_uri(URIType::Src, cdda.as_str(), Some("cd_src")).unwrap();
-    extractor.set_property("read-speed", 0 as i32);
+    extractor.set_property("read-speed", 0_i32);
 
     let id3 = ElementFactory::make("id3v2mux", None).unwrap();
     let mut tags = TagList::new();
@@ -154,8 +155,8 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
     match config.encoder {
         Encoder::MP3 => {
             let enc = ElementFactory::make("lamemp3enc", None).unwrap();
-            enc.set_property("bitrate", 320 as i32);
-            enc.set_property("quality", 0 as f32);
+            enc.set_property("bitrate", 320_i32);
+            enc.set_property("quality", 0_f32);
 
             let tagsetter = &id3.dynamic_cast_ref::<TagSetter>().unwrap();
             tagsetter.merge_tags(&tags, TagMergeMode::ReplaceAll);

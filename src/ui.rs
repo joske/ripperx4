@@ -63,7 +63,7 @@ pub fn build_ui(app: &Application) {
     stop_button.set_sensitive(false);
     handle_stop(ripping.clone(), builder.clone());
 
-    handle_go(ripping.clone(), data.clone(), builder.clone());
+    handle_go(ripping, data, builder);
 }
 
 fn handle_config(config_button: Button) {
@@ -114,21 +114,20 @@ fn handle_config(config_button: Button) {
             .child(&frame)
             .width_request(300)
             .build();
-        let config_clone = config.clone();
         ok_button.connect_clicked(glib::clone!(@weak dialog => move |_| {
                 let buf = path.buffer();
                 let new_path = path
                     .buffer()
                     .text(&buf.start_iter(), &buf.end_iter(), false);
-                config_clone.write().unwrap().encode_path = new_path.to_string();
+                config.write().unwrap().encode_path = new_path.to_string();
                 let c = combo.selected();
-                config_clone.write().unwrap().encoder = match c {
+                config.write().unwrap().encoder = match c {
                     0 => Encoder::MP3,
                     1 => Encoder::OGG,
                     2 => Encoder::FLAC,
                     _ => panic!("invalid value"),
                 };
-                let c = config_clone.read().unwrap();
+                let c = config.read().unwrap();
                 confy::store("ripperx4", &*c).unwrap();
             dialog.close();
         }));
@@ -151,7 +150,7 @@ fn handle_disc(data: Arc<RwLock<Data>>, builder: Builder) {
         }
     }));
     let artist_buffer = artist_text.buffer();
-    let data_artist = data.clone();
+    let data_artist = data;
     artist_buffer.connect_changed(glib::clone!(@weak artist_buffer => move |_| {
         if data_artist.write().unwrap().disc.is_some() {
             let new_artist = artist_buffer.text(&artist_buffer.start_iter(), &artist_buffer.end_iter(), false);
@@ -194,7 +193,8 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
                 // show_message("Disc not found!", MessageType::Error);
                 // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
                 let offsets = [
-                    298948, 183, 26155, 44233, 64778, 80595, 117410, 144120, 159913, 178520, 204803, 258763, 277218
+                    298948, 183, 26155, 44233, 64778, 80595, 117410, 144120, 159913, 178520,
+                    204803, 258763, 277218,
                 ];
                 DiscId::put(1, &offsets).unwrap()
             }
@@ -204,17 +204,17 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
         println!("id={}", discid.id());
         if let Ok(disc) = crate::musicbrainz::lookup(&discid.id()) {
             println!("disc:{}", disc.title);
-            title_text.buffer().set_text(&disc.title.clone().as_str());
-            artist_text.buffer().set_text(&disc.artist.clone().as_str());
-            if (&disc).year.is_some() {
+            title_text.buffer().set_text(disc.title.as_str());
+            artist_text.buffer().set_text(disc.artist.as_str());
+            if disc.year.is_some() {
                 year_text
                     .buffer()
-                    .set_text(&(&disc).year.unwrap().to_string());
+                    .set_text(&(disc.year.unwrap().to_string()));
             }
-            if (&disc).genre.is_some() {
+            if disc.genre.is_some() {
                 genre_text
                     .buffer()
-                    .set_text(&disc.genre.clone().unwrap().clone().as_str());
+                    .set_text(disc.genre.clone().unwrap().as_str());
             }
             data.write().unwrap().disc = Some(disc);
             // here we know how many tracks there are
@@ -233,7 +233,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
                 let r = data.read().unwrap();
                 let d = r.disc.as_ref().unwrap();
                 let title = d.tracks[i as usize].title.as_str();
-                let buffer = TextBufferBuilder::new().text(&title).build();
+                let buffer = TextBufferBuilder::new().text(title).build();
                 let name = format!("{}", i);
                 let tb = TextViewBuilder::new()
                     .name(&name)
@@ -243,7 +243,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
                 let data_changed = data.clone();
                 buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
                     let mut r = data_changed.write().unwrap();
-                    let ref mut d = r.disc.as_mut().unwrap();
+                    let d = &mut r.disc.as_mut().unwrap();
                     let tracks = &mut d.tracks;
                     let mut track = &mut tracks[i as usize];
                     let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
@@ -297,18 +297,19 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: B
             let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
             let ripping_clone3 = ripping_arc.clone();
             thread::spawn(glib::clone!(@weak data => move || {
-                let data_go = data.clone();
+                let data_go = data;
                 if let Some(disc) = &data_go.read().unwrap().disc {
-                    extract(&disc, &tx, ripping_clone3);
+                    extract(disc, &tx, ripping_clone3);
                     println!("done");
                     let _ = tx.send("done".to_owned());
                 };
             }));
-            let scan_button_clone = scan_button.clone();
-            let go_button_clone = go_button.clone();
+            let scan_button_clone = scan_button;
+            let go_button_clone = go_button;
             let stop_button_clone = stop_button.clone();
-            rx.attach(None, move |value| match value {
-                s => {
+            rx.attach(None, move |value| {
+                let s = value;
+                {
                     status.pop(context_id);
                     status.push(context_id, s.as_str());
                     if s == "done" {

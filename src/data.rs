@@ -23,6 +23,7 @@ pub struct Data {
     pub disc: Option<Disc>,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Serialize, Deserialize)]
 pub enum Encoder {
     MP3,
