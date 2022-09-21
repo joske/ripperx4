@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Install glib/gtk dev
-      run: sudo apt update ; sudo apt-get install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev
+      run: sudo apt-get install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev
     - name: Build
       run: cargo build
     - name: Run tests
