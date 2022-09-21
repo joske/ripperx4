@@ -25,4 +25,3 @@ pub fn main() {
     app.connect_activate(ui::build_ui);
     app.run();
 }
-
