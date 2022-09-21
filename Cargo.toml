@@ -10,11 +10,11 @@ glib = "0.15"
 gtk = { version = "0.4", package = "gtk4", features = ["v4_6"]}
 gstreamer = "0.18"
 discid = "0.4"
-confy = "0.4"
+confy = "0.5"
 syn = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 ureq = "2.5.0"
-minidom = "0.15.0"
+minidom = "0.15"
 
 [build-dependencies]
 gtk = { version = "0.4", package = "gtk4", features = ["v4_6"]}

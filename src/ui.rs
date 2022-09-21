@@ -68,7 +68,7 @@ pub fn build_ui(app: &Application) {
 
 fn handle_config(config_button: Button) {
     config_button.connect_clicked(move |_| {
-        let cfg: Result<Config, ConfyError> = confy::load("ripperx4");
+        let cfg: Result<Config, ConfyError> = confy::load("ripperx4", None);
         let config = Arc::new(RwLock::new(cfg.unwrap()));
         let child = Box::builder()
             .orientation(Orientation::Vertical)
@@ -128,7 +128,7 @@ fn handle_config(config_button: Button) {
                     _ => panic!("invalid value"),
                 };
                 let c = config.read().unwrap();
-                confy::store("ripperx4", &*c).unwrap();
+                confy::store("ripperx4", None, &*c).unwrap();
             dialog.close();
         }));
         cancel_button.connect_clicked(glib::clone!(@weak dialog => move |_| {

@@ -12,11 +12,11 @@ mod musicbrainz;
 pub fn main() {
     resources_register_include!("ripperx4.gresource").expect("Failed to register resources.");
 
-    let cfg: Result<Config, ConfyError> = confy::load("ripperx4");
+    let cfg: Result<Config, ConfyError> = confy::load("ripperx4", None);
     if cfg.is_err() {
         // make sure config exists
         let config = Config::default();
-        confy::store("ripperx4", config).unwrap();
+        confy::store("ripperx4", None, config).unwrap();
     }
 
     let app = Application::builder()

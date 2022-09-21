@@ -104,7 +104,7 @@ fn extract_track(
 }
 
 fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
-    let cfg: Result<Config, ConfyError> = confy::load("ripperx4");
+    let cfg: Result<Config, ConfyError> = confy::load("ripperx4", None);
     let config = cfg.unwrap();
 
     gstreamer::init().unwrap();
