@@ -21,7 +21,7 @@ jobs:
     - name: Build
       run: cargo build
     - name: Run tests
-      run: cargo test -- --test-threads=1
+      run: cargo test
       
     - uses: actions/upload-artifact@v3
       with:
