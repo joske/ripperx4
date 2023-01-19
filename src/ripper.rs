@@ -50,7 +50,13 @@ fn extract_track(
             let pos = pipeline.query_position_generic(Format::Percent);
             let dur = pipeline.query_duration_generic(Format::Percent);
             if pos.is_some() && dur.is_some() {
-                let perc = pos.unwrap_or(GenericFormattedValue::Percent(Some(Percent(0)))).value() as f64 / dur.unwrap_or(GenericFormattedValue::Percent(Some(Percent(1)))).value() as f64 * 100.0;
+                let perc = pos
+                    .unwrap_or(GenericFormattedValue::Percent(Some(Percent(0))))
+                    .value() as f64
+                    / dur
+                        .unwrap_or(GenericFormattedValue::Percent(Some(Percent(1))))
+                        .value() as f64
+                    * 100.0;
                 let status_message_perc = format!("{} : {:.0} %", status_message_clone, perc);
                 status.send(status_message_perc).unwrap();
 
@@ -274,14 +280,7 @@ mod test {
         let sink = ElementFactory::make("filesink", None).unwrap();
         sink.set_property("location", "/tmp/file_example_WAV_1MG.ogg");
         let pipeline = Pipeline::new(Some("ripper"));
-        let elements = &[
-            &file,
-            &wav,
-            &convert,
-            &vorbis,
-            &mux,
-            &sink,
-        ];
+        let elements = &[&file, &wav, &convert, &vorbis, &mux, &sink];
         pipeline.add_many(elements).unwrap();
         Element::link_many(elements).unwrap();
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
