@@ -14,13 +14,13 @@ pub fn lookup(discid: &str) -> Result<Disc, Box<dyn Error>> {
 
 fn parse_disc(body: String) -> Result<String, Box<dyn Error>> {
     let metadata: minidom::Element = body.parse()?;
-    let disc = metadata.children().next();
-    if let Some(disc) = disc {
-        let release_list = disc.get_child("release-list", "http://musicbrainz.org/ns/mmd-2.0#");
-        if let Some(release_list) = release_list {
-            let release = release_list
-                .get_child("release", "http://musicbrainz.org/ns/mmd-2.0#");
-            if let Some(release) = release {
+    if let Some(disc) = metadata.children().next() {
+        if let Some(release_list) =
+            disc.get_child("release-list", "http://musicbrainz.org/ns/mmd-2.0#")
+        {
+            if let Some(release) =
+                release_list.get_child("release", "http://musicbrainz.org/ns/mmd-2.0#")
+            {
                 let release_id = release.attr("id").unwrap();
                 let release = format!(
                     "https://musicbrainz.org/ws/2/release/{}?inc=%20recordings+artist-credits",
@@ -47,39 +47,39 @@ fn parse_metadata(xml: String) -> Result<Disc, Box<dyn Error>> {
 
         disc.artist = get_artist(release).unwrap_or_else(|| "".to_owned());
 
-        let medium_list = release.get_child("medium-list", "http://musicbrainz.org/ns/mmd-2.0#");
-        let medium = medium_list.unwrap().children().next().unwrap();
-        let track_list = medium
-            .get_child("track-list", "http://musicbrainz.org/ns/mmd-2.0#")
-            .unwrap();
-        for track in track_list.children() {
-            let mut dtrack = Track {
-                ..Default::default()
-            };
-            if track.has_child("number", "http://musicbrainz.org/ns/mmd-2.0#") {
-                dtrack.number = track
-                    .get_child("number", "http://musicbrainz.org/ns/mmd-2.0#")
-                    .unwrap()
-                    .text()
-                    .parse()
-                    .unwrap_or(0);
-            }
-            if track.has_child("recording", "http://musicbrainz.org/ns/mmd-2.0#") {
-                let recording = track
-                    .get_child("recording", "http://musicbrainz.org/ns/mmd-2.0#")
-                    .unwrap();
-                if recording.has_child("title", "http://musicbrainz.org/ns/mmd-2.0#") {
-                    dtrack.title = recording
-                        .get_child("title", "http://musicbrainz.org/ns/mmd-2.0#")
-                        .unwrap()
-                        .text();
+        if let Some(medium_list) =
+            release.get_child("medium-list", "http://musicbrainz.org/ns/mmd-2.0#")
+        {
+            if let Some(medium) = medium_list.children().next() {
+                if let Some(track_list) =
+                    medium.get_child("track-list", "http://musicbrainz.org/ns/mmd-2.0#")
+                {
+                    for track in track_list.children() {
+                        let mut dtrack = Track {
+                            ..Default::default()
+                        };
+                        if let Some(num) =
+                            track.get_child("number", "http://musicbrainz.org/ns/mmd-2.0#")
+                        {
+                            dtrack.number = num.text().parse().unwrap_or(0);
+                        }
 
-                    dtrack.artist = get_artist(recording).unwrap_or_else(|| "".to_owned());
+                        if let Some(recording) =
+                            track.get_child("recording", "http://musicbrainz.org/ns/mmd-2.0#")
+                        {
+                            if let Some(title) =
+                                recording.get_child("title", "http://musicbrainz.org/ns/mmd-2.0#")
+                            {
+                                dtrack.title = title.text();
+                            }
+                            dtrack.artist = get_artist(recording).unwrap_or("".to_owned());
+                        }
+                        disc.tracks.push(dtrack);
+                    }
                 }
             }
-            disc.tracks.push(dtrack);
+            return Ok(disc);
         }
-        return Ok(disc);
     }
     Err("Failed to parse metadata".into())
 }
