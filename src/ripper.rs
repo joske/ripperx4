@@ -3,8 +3,8 @@ use std::sync::{Arc, RwLock};
 
 use crate::data::{Config, Disc, Encoder, Track};
 use confy::ConfyError;
-use glib::MainLoop;
 use gstreamer::format::Percent;
+use gstreamer::glib::MainLoop;
 use gstreamer::tags::{Album, Artist, Composer, Date, Duration, TrackNumber};
 use gstreamer::*;
 use gstreamer::{prelude::*, tags::Title};
@@ -202,13 +202,14 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Pipeline {
 mod test {
     use std::env;
     use std::sync::{Arc, RwLock};
-
+    use serial_test::serial;
     use gstreamer::prelude::*;
     use gstreamer::*;
 
     use super::extract_track;
 
     #[test]
+    #[serial]
     pub fn test_mp3() {
         gstreamer::init().unwrap();
         let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -239,6 +240,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     pub fn test_flac() {
         gstreamer::init().unwrap();
         let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -267,6 +269,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     pub fn test_ogg() {
         gstreamer::init().unwrap();
         let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();

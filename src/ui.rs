@@ -294,7 +294,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: B
             scan_button.set_sensitive(false);
             *ripping = true;
             let context_id = status.context_id("foo");
-            let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+            let (tx, rx) = gstreamer::glib::MainContext::channel(gstreamer::glib::PRIORITY_DEFAULT);
             let ripping_clone3 = ripping_arc.clone();
             thread::spawn(glib::clone!(@weak data => move || {
                 let data_go = data;
@@ -316,9 +316,9 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: B
                         scan_button_clone.set_sensitive(true);
                         go_button_clone.set_sensitive(true);
                         stop_button_clone.set_sensitive(false);
-                        return glib::Continue(false);
+                        return gstreamer::glib::Continue(false);
                     }
-                    glib::Continue(true)
+                    gstreamer::glib::Continue(true)
                 }
             });
         }
