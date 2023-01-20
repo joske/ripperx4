@@ -82,7 +82,7 @@ fn extract_track(
         glib::Continue(true)
     });
 
-    let bus = pipeline.bus().unwrap();
+    let bus = pipeline.bus().ok_or(MyError("no bus".to_owned()))?;
 
     bus.add_watch(move |_, msg| {
         let main_loop = &main_loop_clone;

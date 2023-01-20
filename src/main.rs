@@ -16,7 +16,7 @@ pub fn main() {
     if cfg.is_err() {
         // make sure config exists
         let config = Config::default();
-        confy::store("ripperx4", None, config).unwrap();
+        confy::store("ripperx4", None, config).expect("failed to create config");
     }
 
     let app = Application::builder()
