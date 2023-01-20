@@ -64,7 +64,7 @@ fn parse_metadata(xml: String) -> Result<Disc, Box<dyn Error>> {
                             if let Some(title) = get_child!(recording, "title") {
                                 dtrack.title = title.text();
                             }
-                            dtrack.artist = get_artist(recording).unwrap_or("".to_owned());
+                            dtrack.artist = get_artist(recording).unwrap_or_else(|| "".to_owned());
                         }
                         disc.tracks.push(dtrack);
                     }

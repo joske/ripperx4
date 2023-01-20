@@ -135,7 +135,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
     {
         let tags = tags
             .get_mut()
-            .ok_or(MyError("can not get mut".to_owned()))?;
+            .ok_or_else(|| MyError("can not get mut".to_owned()))?;
         tags.add::<Title>(&track.title.as_str(), TagMergeMode::ReplaceAll);
         tags.add::<Artist>(&track.artist.as_str(), TagMergeMode::ReplaceAll);
         tags.add::<TrackNumber>(&track.number, TagMergeMode::ReplaceAll);
@@ -167,7 +167,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
     std::fs::create_dir_all(
         Path::new(&location)
             .parent()
-            .ok_or(MyError("failed to create folder".to_owned()))?,
+            .ok_or_else(|| MyError("failed to create folder".to_owned()))?,
     )?;
     let sink = ElementFactory::make("filesink", None)?;
     sink.set_property("location", location);
