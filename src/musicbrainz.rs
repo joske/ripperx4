@@ -4,6 +4,12 @@ use minidom::Element;
 
 use crate::data::{Disc, Track};
 
+macro_rules! get_child {
+    ($parent:ident, $child:expr) => {
+        $parent.get_child($child, "http://musicbrainz.org/ns/mmd-2.0#")
+    };
+}
+
 pub fn lookup(discid: &str) -> Result<Disc, Box<dyn Error>> {
     let lookup = format!("https://musicbrainz.org/ws/2/discid/{}", discid);
     let body: String = ureq::get(lookup.as_str()).call()?.into_string()?;
@@ -15,18 +21,15 @@ pub fn lookup(discid: &str) -> Result<Disc, Box<dyn Error>> {
 fn parse_disc(body: String) -> Result<String, Box<dyn Error>> {
     let metadata: minidom::Element = body.parse()?;
     if let Some(disc) = metadata.children().next() {
-        if let Some(release_list) =
-            disc.get_child("release-list", "http://musicbrainz.org/ns/mmd-2.0#")
-        {
-            if let Some(release) =
-                release_list.get_child("release", "http://musicbrainz.org/ns/mmd-2.0#")
-            {
-                let release_id = release.attr("id").unwrap();
-                let release = format!(
-                    "https://musicbrainz.org/ws/2/release/{}?inc=%20recordings+artist-credits",
-                    release_id
-                );
-                return Ok(release);
+        if let Some(release_list) = get_child!(disc, "release-list") {
+            if let Some(release) = get_child!(release_list, "release") {
+                if let Some(release_id) = release.attr("id") {
+                    let release = format!(
+                        "https://musicbrainz.org/ws/2/release/{}?inc=%20recordings+artist-credits",
+                        release_id
+                    );
+                    return Ok(release);
+                }
             }
         }
     }
@@ -40,36 +43,25 @@ fn parse_metadata(xml: String) -> Result<Disc, Box<dyn Error>> {
         let mut disc = Disc {
             ..Default::default()
         };
-        disc.title = release
-            .get_child("title", "http://musicbrainz.org/ns/mmd-2.0#")
-            .unwrap()
-            .text();
+        if let Some(title) = get_child!(release, "title") {
+            disc.title = title.text();
+        }
 
         disc.artist = get_artist(release).unwrap_or_else(|| "".to_owned());
 
-        if let Some(medium_list) =
-            release.get_child("medium-list", "http://musicbrainz.org/ns/mmd-2.0#")
-        {
+        if let Some(medium_list) = get_child!(release, "medium-list") {
             if let Some(medium) = medium_list.children().next() {
-                if let Some(track_list) =
-                    medium.get_child("track-list", "http://musicbrainz.org/ns/mmd-2.0#")
-                {
+                if let Some(track_list) = get_child!(medium, "track-list") {
                     for track in track_list.children() {
                         let mut dtrack = Track {
                             ..Default::default()
                         };
-                        if let Some(num) =
-                            track.get_child("number", "http://musicbrainz.org/ns/mmd-2.0#")
-                        {
+                        if let Some(num) = get_child!(track, "number") {
                             dtrack.number = num.text().parse().unwrap_or(0);
                         }
 
-                        if let Some(recording) =
-                            track.get_child("recording", "http://musicbrainz.org/ns/mmd-2.0#")
-                        {
-                            if let Some(title) =
-                                recording.get_child("title", "http://musicbrainz.org/ns/mmd-2.0#")
-                            {
+                        if let Some(recording) = get_child!(track, "recording") {
+                            if let Some(title) = get_child!(recording, "title") {
                                 dtrack.title = title.text();
                             }
                             dtrack.artist = get_artist(recording).unwrap_or("".to_owned());
@@ -85,15 +77,10 @@ fn parse_metadata(xml: String) -> Result<Disc, Box<dyn Error>> {
 }
 
 fn get_artist(element: &Element) -> Option<String> {
-    let artist_credit = element.get_child("artist-credit", "http://musicbrainz.org/ns/mmd-2.0#")?;
-    let name_credit =
-        artist_credit.get_child("name-credit", "http://musicbrainz.org/ns/mmd-2.0#")?;
-    let artist = name_credit.get_child("artist", "http://musicbrainz.org/ns/mmd-2.0#")?;
-    Some(
-        artist
-            .get_child("name", "http://musicbrainz.org/ns/mmd-2.0#")?
-            .text(),
-    )
+    let artist_credit = get_child!(element, "artist-credit")?;
+    let name_credit = get_child!(artist_credit, "name-credit")?;
+    let artist = get_child!(name_credit, "artist")?;
+    Some(get_child!(artist, "name")?.text())
 }
 
 #[cfg(test)]
