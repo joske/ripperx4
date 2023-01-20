@@ -299,7 +299,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: B
             thread::spawn(glib::clone!(@weak data => move || {
                 let data_go = data;
                 if let Some(disc) = &data_go.read().unwrap().disc {
-                    extract(disc, &tx, ripping_clone3);
+                    extract(disc, &tx, ripping_clone3).ok();
                     println!("done");
                     let _ = tx.send("done".to_owned());
                 };
