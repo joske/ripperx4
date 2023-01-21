@@ -7,7 +7,10 @@ use crate::data::{Config, Disc, Encoder, Track};
 use gstreamer::format::Percent;
 use gstreamer::glib::MainLoop;
 use gstreamer::tags::{Album, Artist, Composer, Date, Duration, TrackNumber};
-use gstreamer::*;
+use gstreamer::{
+    glib, ClockTime, Element, ElementFactory, Format, GenericFormattedValue, MessageView, Pipeline,
+    State, TagList, TagMergeMode, TagSetter, URIType,
+};
 use gstreamer::{prelude::*, tags::Title};
 
 #[derive(Debug)]
@@ -24,22 +27,22 @@ impl Display for MyError {
 pub fn extract(
     disc: &Disc,
     status: &glib::Sender<String>,
-    ripping: Arc<RwLock<bool>>,
+    ripping: &Arc<RwLock<bool>>,
 ) -> Result<(), Box<dyn Error>> {
-    for t in disc.tracks.iter() {
+    for t in &disc.tracks {
         if !*ripping.read().unwrap() {
             // ABORTED
             break;
         }
         let pipeline = create_pipeline(t, disc)?;
-        extract_track(pipeline, t.title.clone(), status, ripping.clone())?;
+        extract_track(pipeline, t.title.as_str(), status, ripping.clone())?;
     }
     Ok(())
 }
 
 fn extract_track(
     pipeline: Pipeline,
-    title: String,
+    title: &str,
     status: &glib::Sender<String>,
     ripping: Arc<RwLock<bool>>,
 ) -> Result<(), Box<dyn Error>> {
@@ -82,7 +85,7 @@ fn extract_track(
         glib::Continue(true)
     });
 
-    let bus = pipeline.bus().ok_or(MyError("no bus".to_owned()))?;
+    let bus = pipeline.bus().ok_or_else(|| MyError("no bus".to_owned()))?;
 
     bus.add_watch(move |_, msg| {
         let main_loop = &main_loop_clone;
@@ -257,7 +260,7 @@ mod test {
             }
         });
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(pipeline, "track".to_owned(), &tx, ripping).ok();
+        extract_track(pipeline, "track", &tx, ripping).ok();
     }
 
     #[test]
@@ -286,7 +289,7 @@ mod test {
             }
         });
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(pipeline, "track".to_owned(), &tx, ripping).ok();
+        extract_track(pipeline, "track", &tx, ripping).ok();
     }
 
     #[test]
@@ -317,6 +320,6 @@ mod test {
             }
         });
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(pipeline, "track".to_owned(), &tx, ripping).ok();
+        extract_track(pipeline, "track", &tx, ripping).ok();
     }
 }

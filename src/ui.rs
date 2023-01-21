@@ -52,21 +52,21 @@ pub fn build_ui(app: &Application) {
         window.close();
     });
 
-    handle_disc(data.clone(), builder.clone());
+    handle_disc(data.clone(), &builder);
 
-    handle_scan(data.clone(), builder.clone());
+    handle_scan(data.clone(), &builder);
 
     let config_button: Button = builder.object("config_button").unwrap();
-    handle_config(config_button);
+    handle_config(&config_button);
 
     let stop_button: Button = builder.object("stop_button").unwrap();
     stop_button.set_sensitive(false);
-    handle_stop(ripping.clone(), builder.clone());
+    handle_stop(ripping.clone(), &builder);
 
-    handle_go(ripping, data, builder);
+    handle_go(ripping, data, &builder);
 }
 
-fn handle_config(config_button: Button) {
+fn handle_config(config_button: &Button) {
     config_button.connect_clicked(move |_| {
         let cfg: Result<Config, ConfyError> = confy::load("ripperx4", None);
         let config = Arc::new(RwLock::new(cfg.unwrap()));
@@ -138,7 +138,7 @@ fn handle_config(config_button: Button) {
     });
 }
 
-fn handle_disc(data: Arc<RwLock<Data>>, builder: Builder) {
+fn handle_disc(data: Arc<RwLock<Data>>, builder: &Builder) {
     let title_text: TextView = builder.object("disc_title").unwrap();
     let artist_text: TextView = builder.object("disc_artist").unwrap();
     let title_buffer = title_text.buffer();
@@ -159,7 +159,8 @@ fn handle_disc(data: Arc<RwLock<Data>>, builder: Builder) {
     }));
 }
 
-fn handle_stop(ripping: Arc<RwLock<bool>>, builder: Builder) {
+fn handle_stop(ripping: Arc<RwLock<bool>>, builder: &Builder) {
+    let builder = builder.clone();
     let stop_button: Button = builder.object("stop_button").unwrap();
     stop_button.connect_clicked(move |_| {
         println!("stop");
@@ -176,7 +177,7 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, builder: Builder) {
     });
 }
 
-fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
+fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
     let title_text: TextView = builder.object("disc_title").unwrap();
     let artist_text: TextView = builder.object("disc_artist").unwrap();
     let year_text: TextView = builder.object("year").unwrap();
@@ -187,17 +188,16 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
     scan_button.connect_clicked(move |_| {
         println!("Scan");
         let result = DiscId::read(Some(DiscId::default_device().as_str()));
-        let discid = match result {
-            Ok(d) => d,
-            Err(_) => {
-                // show_message("Disc not found!", MessageType::Error);
-                // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
-                let offsets = [
-                    298948, 183, 26155, 44233, 64778, 80595, 117410, 144120, 159913, 178520,
-                    204803, 258763, 277218,
-                ];
-                DiscId::put(1, &offsets).unwrap()
-            }
+        let discid = if let Ok(d) = result {
+            d
+        } else {
+            // show_message("Disc not found!", MessageType::Error);
+            // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
+            let offsets = [
+                298948, 183, 26155, 44233, 64778, 80595, 117410, 144120, 159913, 178520, 204803,
+                258763, 277218,
+            ];
+            DiscId::put(1, &offsets).unwrap()
         };
 
         println!("Scanned: {:?}", discid);
@@ -219,7 +219,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
             data.write().unwrap().disc = Some(disc);
             // here we know how many tracks there are
             let tracks = discid.last_track_num() - discid.first_track_num() + 1;
-            for i in 0..tracks {
+            for i in 0..tracks as usize {
                 let hbox = BoxBuilder::new()
                     .orientation(Orientation::Horizontal)
                     .vexpand(false)
@@ -243,7 +243,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: Builder) {
                 let data_changed = data.clone();
                 buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
                     let mut r = data_changed.write().unwrap();
-                    let d = &mut r.disc.as_mut().unwrap();
+                    let d = r.disc.as_mut().unwrap();
                     let tracks = &mut d.tracks;
                     let mut track = &mut tracks[i as usize];
                     let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
@@ -279,7 +279,8 @@ fn show_message(message: &str, typ: MessageType) {
     dialog.show();
 }
 
-fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: Builder) {
+fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &Builder) {
+    let builder = builder.clone();
     let go_button: Button = builder.object("go_button").unwrap();
     go_button.set_sensitive(false);
     let status: Statusbar = builder.object("statusbar").unwrap();
@@ -299,9 +300,9 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: B
             thread::spawn(glib::clone!(@weak data => move || {
                 let data_go = data;
                 if let Some(disc) = &data_go.read().unwrap().disc {
-                    extract(disc, &tx, ripping_clone3).ok();
+                    extract(disc, &tx, &ripping_clone3).ok();
                     println!("done");
-                    let _ = tx.send("done".to_owned());
+                    let _ignore = tx.send("done".to_owned());
                 };
             }));
             let scan_button_clone = scan_button;

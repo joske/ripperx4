@@ -13,12 +13,12 @@ macro_rules! get_child {
 pub fn lookup(discid: &str) -> Result<Disc, Box<dyn Error>> {
     let lookup = format!("https://musicbrainz.org/ws/2/discid/{}", discid);
     let body: String = ureq::get(lookup.as_str()).call()?.into_string()?;
-    let release = parse_disc(body)?;
+    let release = parse_disc(body.as_str())?;
     let body: String = ureq::get(release.as_str()).call()?.into_string()?;
-    parse_metadata(body)
+    parse_metadata(body.as_str())
 }
 
-fn parse_disc(body: String) -> Result<String, Box<dyn Error>> {
+fn parse_disc(body: &str) -> Result<String, Box<dyn Error>> {
     let metadata: minidom::Element = body.parse()?;
     if let Some(disc) = metadata.children().next() {
         if let Some(release_list) = get_child!(disc, "release-list") {
@@ -36,7 +36,7 @@ fn parse_disc(body: String) -> Result<String, Box<dyn Error>> {
     Err("Failed to parse disc".into())
 }
 
-fn parse_metadata(xml: String) -> Result<Disc, Box<dyn Error>> {
+fn parse_metadata(xml: &str) -> Result<Disc, Box<dyn Error>> {
     let metadata: minidom::Element = xml.parse()?;
     let release = metadata.children().next();
     if let Some(release) = release {
@@ -47,7 +47,7 @@ fn parse_metadata(xml: String) -> Result<Disc, Box<dyn Error>> {
             disc.title = title.text();
         }
 
-        disc.artist = get_artist(release).unwrap_or_else(|| "".to_owned());
+        disc.artist = get_artist(release).unwrap_or_default();
 
         if let Some(medium_list) = get_child!(release, "medium-list") {
             if let Some(medium) = medium_list.children().next() {
@@ -64,7 +64,7 @@ fn parse_metadata(xml: String) -> Result<Disc, Box<dyn Error>> {
                             if let Some(title) = get_child!(recording, "title") {
                                 dtrack.title = title.text();
                             }
-                            dtrack.artist = get_artist(recording).unwrap_or_else(|| "".to_owned());
+                            dtrack.artist = get_artist(recording).unwrap_or_default();
                         }
                         disc.tracks.push(dtrack);
                     }
@@ -106,7 +106,7 @@ mod test {
         let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
         path.push_str("/resources/test/direstraits-releases-metadata.xml");
         let contents = fs::read_to_string(path).unwrap();
-        let disc = parse_metadata(contents);
+        let disc = parse_metadata(contents.as_str());
         assert!(disc.is_ok());
         let disc = disc.unwrap();
         assert_eq!("Dire Straits", disc.artist);
