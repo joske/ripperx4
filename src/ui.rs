@@ -300,9 +300,17 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
             thread::spawn(glib::clone!(@weak data => move || {
                 let data_go = data;
                 if let Some(disc) = &data_go.read().unwrap().disc {
-                    extract(disc, &tx, &ripping_clone3).ok();
-                    println!("done");
-                    let _ignore = tx.send("done".to_owned());
+                    match extract(disc, &tx, &ripping_clone3) {
+                        Ok(_) => {
+                            println!("done");
+                            let _ignore = tx.send("done".to_owned());
+                        }
+                        Err(e) => {
+                            let msg = format!("Error: {}", e);
+                            println!("{}", msg);
+                            let _ignore = tx.send(msg);
+                        }
+                    }
                 };
             }));
             let scan_button_clone = scan_button;
