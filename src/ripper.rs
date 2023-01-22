@@ -322,4 +322,62 @@ mod test {
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping).ok();
     }
+
+    #[test]
+    #[serial]
+    pub fn test_parse() {
+        gstreamer::init().unwrap();
+        let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
+        path.push_str("/resources/test/file_example_WAV_1MG.wav");
+        let desc = format!(
+            r##"filesrc location={} ! wavparse ! audioconvert ! vorbisenc ! oggmux ! filesink location=out.ogg"##,
+            path
+        );
+        // Like teasered above, we use GLib's main loop to operate GStreamer's bus.
+        let main_loop = glib::MainLoop::new(None, false);
+
+        let pipeline = gstreamer::parse_launch(desc.as_str()).unwrap();
+        let bus = pipeline.bus().unwrap();
+
+        pipeline
+            .set_state(gstreamer::State::Playing)
+            .expect("Unable to set the pipeline to the `Playing` state");
+
+        let main_loop_clone = main_loop.clone();
+
+        //bus.add_signal_watch();
+        //bus.connect_message(None, move |_, msg| {
+        bus.add_watch(move |_, msg| {
+            use gstreamer::MessageView;
+
+            let main_loop = &main_loop_clone;
+            match msg.view() {
+                MessageView::Eos(..) => main_loop.quit(),
+                MessageView::Error(err) => {
+                    println!(
+                        "Error from {:?}: {} ({:?})",
+                        err.src().map(|s| s.path_string()),
+                        err.error(),
+                        err.debug()
+                    );
+                    main_loop.quit();
+                }
+                _ => (),
+            };
+
+            glib::Continue(true)
+        })
+        .expect("Failed to add bus watch");
+
+        main_loop.run();
+
+        pipeline
+            .set_state(gstreamer::State::Null)
+            .expect("Unable to set the pipeline to the `Null` state");
+
+        // Here we remove the bus watch we added above. This avoids a memory leak, that might
+        // otherwise happen because we moved a strong reference (clone of main_loop) into the
+        // callback closure above.
+        bus.remove_watch().unwrap();
+    }
 }
