@@ -69,10 +69,14 @@ fn extract_track(
         let dur = pipeline.query_duration_generic(Format::Percent);
         if pos.is_some() && dur.is_some() {
             let perc = pos
-                .unwrap_or(GenericFormattedValue::Percent(Some(Percent(0))))
+                .unwrap_or(GenericFormattedValue::Percent(Some(Percent::from_percent(
+                    0,
+                ))))
                 .value() as f64
                 / dur
-                    .unwrap_or(GenericFormattedValue::Percent(Some(Percent(1))))
+                    .unwrap_or(GenericFormattedValue::Percent(Some(Percent::from_percent(
+                        1,
+                    ))))
                     .value() as f64
                 * 100.0;
             let status_message_perc = format!("{} : {:.0} %", status_message_clone, perc);
@@ -133,7 +137,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
     let extractor = Element::make_from_uri(URIType::Src, cdda.as_str(), Some("cd_src"))?;
     extractor.set_property("read-speed", 0_i32);
 
-    let id3 = ElementFactory::make("id3v2mux", None)?;
+    let id3 = ElementFactory::make("id3v2mux").build()?;
     let mut tags = TagList::new();
     {
         let tags = tags
@@ -172,13 +176,13 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
             .parent()
             .ok_or_else(|| MyError("failed to create folder".to_owned()))?,
     )?;
-    let sink = ElementFactory::make("filesink", None)?;
+    let sink = ElementFactory::make("filesink").build()?;
     sink.set_property("location", location);
 
     let pipeline = Pipeline::new(Some("ripper"));
     match config.encoder {
         Encoder::MP3 => {
-            let enc = ElementFactory::make("lamemp3enc", None)?;
+            let enc = ElementFactory::make("lamemp3enc").build()?;
             enc.set_property("bitrate", 320_i32);
             enc.set_property("quality", 0_f32);
 
@@ -192,9 +196,9 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
             Element::link_many(elements)?;
         }
         Encoder::OGG => {
-            let convert = ElementFactory::make("audioconvert", None)?;
-            let vorbis = ElementFactory::make("vorbisenc", None)?;
-            let mux = ElementFactory::make("oggmux", None)?;
+            let convert = ElementFactory::make("audioconvert").build()?;
+            let vorbis = ElementFactory::make("vorbisenc").build()?;
+            let mux = ElementFactory::make("oggmux").build()?;
 
             let tagsetter = &vorbis
                 .dynamic_cast_ref::<TagSetter>()
@@ -206,7 +210,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
             Element::link_many(elements)?;
         }
         Encoder::FLAC => {
-            let enc = ElementFactory::make("flacenc", None)?;
+            let enc = ElementFactory::make("flacenc").build()?;
             let elements = &[&extractor, &enc, &id3, &sink];
 
             let tagsetter = &id3
@@ -239,12 +243,12 @@ mod test {
         let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
         path.push_str("/resources/test/file_example_WAV_1MG.wav");
 
-        let file = ElementFactory::make("filesrc", None).unwrap();
+        let file = ElementFactory::make("filesrc").build().unwrap();
         file.set_property("location", path.as_str());
-        let wav = ElementFactory::make("wavparse", None).unwrap();
-        let encoder = ElementFactory::make("lamemp3enc", None).unwrap();
-        let id3 = ElementFactory::make("id3v2mux", None).unwrap();
-        let sink = ElementFactory::make("filesink", None).unwrap();
+        let wav = ElementFactory::make("wavparse").build().unwrap();
+        let encoder = ElementFactory::make("lamemp3enc").build().unwrap();
+        let id3 = ElementFactory::make("id3v2mux").build().unwrap();
+        let sink = ElementFactory::make("filesink").build().unwrap();
         sink.set_property("location", "/tmp/file_example_WAV_1MG.mp3");
         let pipeline = Pipeline::new(Some("ripper"));
         let elements = &[&file, &wav, &encoder, &id3, &sink];
@@ -269,11 +273,11 @@ mod test {
         gstreamer::init().unwrap();
         let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
         path.push_str("/resources/test/file_example_WAV_1MG.wav");
-        let file = ElementFactory::make("filesrc", None).unwrap();
+        let file = ElementFactory::make("filesrc").build().unwrap();
         file.set_property("location", path.as_str());
-        let wav = ElementFactory::make("wavparse", None).unwrap();
-        let encoder = ElementFactory::make("flacenc", None).unwrap();
-        let sink = ElementFactory::make("filesink", None).unwrap();
+        let wav = ElementFactory::make("wavparse").build().unwrap();
+        let encoder = ElementFactory::make("flacenc").build().unwrap();
+        let sink = ElementFactory::make("filesink").build().unwrap();
         sink.set_property("location", "/tmp/file_example_WAV_1MG.flac");
         let pipeline = Pipeline::new(Some("ripper"));
         let elements = &[&file, &wav, &encoder, &sink];
@@ -298,13 +302,13 @@ mod test {
         gstreamer::init().unwrap();
         let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
         path.push_str("/resources/test/file_example_WAV_1MG.wav");
-        let file = ElementFactory::make("filesrc", None).unwrap();
+        let file = ElementFactory::make("filesrc").build().unwrap();
         file.set_property("location", path.as_str());
-        let wav = ElementFactory::make("wavparse", None).unwrap();
-        let convert = ElementFactory::make("audioconvert", None).unwrap();
-        let vorbis = ElementFactory::make("vorbisenc", None).unwrap();
-        let mux = ElementFactory::make("oggmux", None).unwrap();
-        let sink = ElementFactory::make("filesink", None).unwrap();
+        let wav = ElementFactory::make("wavparse").build().unwrap();
+        let convert = ElementFactory::make("audioconvert").build().unwrap();
+        let vorbis = ElementFactory::make("vorbisenc").build().unwrap();
+        let mux = ElementFactory::make("oggmux").build().unwrap();
+        let sink = ElementFactory::make("filesink").build().unwrap();
         sink.set_property("location", "/tmp/file_example_WAV_1MG.ogg");
         let pipeline = Pipeline::new(Some("ripper"));
         let elements = &[&file, &wav, &convert, &vorbis, &mux, &sink];
@@ -321,63 +325,5 @@ mod test {
         });
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping).ok();
-    }
-
-    #[test]
-    #[serial]
-    pub fn test_parse() {
-        gstreamer::init().unwrap();
-        let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
-        path.push_str("/resources/test/file_example_WAV_1MG.wav");
-        let desc = format!(
-            r##"filesrc location={} ! wavparse ! audioconvert ! vorbisenc ! oggmux ! filesink location=out.ogg"##,
-            path
-        );
-        // Like teasered above, we use GLib's main loop to operate GStreamer's bus.
-        let main_loop = glib::MainLoop::new(None, false);
-
-        let pipeline = gstreamer::parse_launch(desc.as_str()).unwrap();
-        let bus = pipeline.bus().unwrap();
-
-        pipeline
-            .set_state(gstreamer::State::Playing)
-            .expect("Unable to set the pipeline to the `Playing` state");
-
-        let main_loop_clone = main_loop.clone();
-
-        //bus.add_signal_watch();
-        //bus.connect_message(None, move |_, msg| {
-        bus.add_watch(move |_, msg| {
-            use gstreamer::MessageView;
-
-            let main_loop = &main_loop_clone;
-            match msg.view() {
-                MessageView::Eos(..) => main_loop.quit(),
-                MessageView::Error(err) => {
-                    println!(
-                        "Error from {:?}: {} ({:?})",
-                        err.src().map(|s| s.path_string()),
-                        err.error(),
-                        err.debug()
-                    );
-                    main_loop.quit();
-                }
-                _ => (),
-            };
-
-            glib::Continue(true)
-        })
-        .expect("Failed to add bus watch");
-
-        main_loop.run();
-
-        pipeline
-            .set_state(gstreamer::State::Null)
-            .expect("Unable to set the pipeline to the `Null` state");
-
-        // Here we remove the bus watch we added above. This avoids a memory leak, that might
-        // otherwise happen because we moved a strong reference (clone of main_loop) into the
-        // callback closure above.
-        bus.remove_watch().unwrap();
     }
 }

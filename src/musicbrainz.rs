@@ -38,8 +38,7 @@ fn parse_disc(body: &str) -> Result<String, Box<dyn Error>> {
 
 fn parse_metadata(xml: &str) -> Result<Disc, Box<dyn Error>> {
     let metadata: minidom::Element = xml.parse()?;
-    let release = metadata.children().next();
-    if let Some(release) = release {
+    if let Some(release) = metadata.children().next() {
         let mut disc = Disc {
             ..Default::default()
         };

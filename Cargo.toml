@@ -8,7 +8,7 @@ license = "GPL-2.0-only"
 home = "0.5"
 glib = "0.16"
 gtk = { version = "0.5", package = "gtk4", features = ["v4_8"]}
-gstreamer = "0.18"
+gstreamer = "0.19"
 discid = "0.4"
 confy = "0.5"
 syn = "1.0"
