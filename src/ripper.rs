@@ -24,6 +24,7 @@ impl Display for MyError {
     }
 }
 
+/// Extract/Rip a `Disc` to MP3/OGG/FLAC
 pub fn extract(
     disc: &Disc,
     status: &glib::Sender<String>,
@@ -40,6 +41,7 @@ pub fn extract(
     Ok(())
 }
 
+/// Rip one `Track`
 fn extract_track(
     pipeline: Pipeline,
     title: &str,
@@ -128,6 +130,8 @@ fn extract_track(
     Ok(())
 }
 
+/// Create a gstreamer pipeline for extracting/encoding the `Track`
+/// Returns a linked `Pipeline`
 fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error>> {
     let config: Config = confy::load("ripperx4", None)?;
 

@@ -10,6 +10,8 @@ macro_rules! get_child {
     };
 }
 
+/// Lookup a disc by discid on musicbrainz
+/// Returns a `Disc` if a disc was found and parsing metadata succeeds
 pub fn lookup(discid: &str) -> Result<Disc, Box<dyn Error>> {
     let lookup = format!("https://musicbrainz.org/ws/2/discid/{}", discid);
     let body: String = ureq::get(lookup.as_str()).call()?.into_string()?;
@@ -18,6 +20,8 @@ pub fn lookup(discid: &str) -> Result<Disc, Box<dyn Error>> {
     parse_metadata(body.as_str())
 }
 
+/// Return an URL to a release for the given disc
+/// Parses the XML returned by the query on discid
 fn parse_disc(body: &str) -> Result<String, Box<dyn Error>> {
     let metadata: minidom::Element = body.parse()?;
     if let Some(disc) = metadata.children().next() {
@@ -36,6 +40,8 @@ fn parse_disc(body: &str) -> Result<String, Box<dyn Error>> {
     Err("Failed to parse disc".into())
 }
 
+/// Parse the metadata for the given release
+/// Returns a `Disc` if  parsing succeeds
 fn parse_metadata(xml: &str) -> Result<Disc, Box<dyn Error>> {
     let metadata: minidom::Element = xml.parse()?;
     if let Some(release) = metadata.children().next() {
@@ -75,6 +81,7 @@ fn parse_metadata(xml: &str) -> Result<Disc, Box<dyn Error>> {
     Err("Failed to parse metadata".into())
 }
 
+/// Parse out the Artist name from a `artist-credit` XML element
 fn get_artist(element: &Element) -> Option<String> {
     let artist_credit = get_child!(element, "artist-credit")?;
     let name_credit = get_child!(artist_credit, "name-credit")?;
