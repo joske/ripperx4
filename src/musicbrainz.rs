@@ -124,37 +124,32 @@ mod test {
 
     #[test]
     fn parse_metadata_bad_non_xml() {
-        let e = parse_metadata("brol".into());
+        let e = parse_metadata("brol");
         assert!(e.is_err());
     }
 
     #[test]
     fn parse_metadata_bad_xml_no_releases() {
-        let e = parse_metadata(
-            r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#.into(),
-        );
+        let e =
+            parse_metadata(r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#);
         assert!(e.is_err());
     }
 
     #[test]
     fn parse_disc_bad_non_xml() {
-        let e = parse_disc("brol".into());
+        let e = parse_disc("brol");
         assert!(e.is_err());
     }
 
     #[test]
     fn parse_disc_bad_xml_no_discs() {
-        let e = parse_disc(
-            r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#.into(),
-        );
+        let e = parse_disc(r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#);
         assert!(e.is_err());
     }
 
     #[test]
     fn parse_disc_bad_xml_discs() {
-        let e = parse_disc(
-            r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#.into(),
-        );
+        let e = parse_disc(r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#);
         assert!(e.is_err());
     }
 

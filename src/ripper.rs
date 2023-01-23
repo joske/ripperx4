@@ -259,8 +259,9 @@ mod test {
         pipeline.add_many(elements).unwrap();
         Element::link_many(elements).unwrap();
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        rx.attach(None, move |value| match value {
-            s => {
+        rx.attach(None, move |value| {
+            let s = value;
+            {
                 if s == "done" {
                     return glib::Continue(false);
                 }
@@ -288,8 +289,9 @@ mod test {
         pipeline.add_many(elements).unwrap();
         Element::link_many(elements).unwrap();
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        rx.attach(None, move |value| match value {
-            s => {
+        rx.attach(None, move |value| {
+            let s = value;
+            {
                 if s == "done" {
                     return glib::Continue(false);
                 }
@@ -319,8 +321,9 @@ mod test {
         pipeline.add_many(elements).unwrap();
         Element::link_many(elements).unwrap();
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        rx.attach(None, move |value| match value {
-            s => {
+        rx.attach(None, move |value| {
+            let s = value;
+            {
                 if s == "done" {
                     return glib::Continue(false);
                 }
