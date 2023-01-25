@@ -5,7 +5,7 @@ use minidom::Element;
 use crate::data::{Disc, Track};
 
 macro_rules! get_child {
-    ($parent:ident, $child:expr) => {
+    ($parent:ident, $child:literal) => {
         $parent.get_child($child, "http://musicbrainz.org/ns/mmd-2.0#")
     };
 }
