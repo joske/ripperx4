@@ -1,3 +1,3 @@
 FROM mcr.microsoft.com/devcontainers/base:alpine
 
-RUN apk update && apk add rustup gtk4.0-dev
+RUN sudo apk update && sudo apk add rustup gtk4.0-dev
