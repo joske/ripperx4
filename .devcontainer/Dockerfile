@@ -1,5 +1,4 @@
-
-FROM rust
+FROM ubuntu:kinetic
 
 # Avoid warnings by switching to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -12,7 +11,7 @@ ARG USERNAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-RUN apt update && apt install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev \
+RUN apt update && apt install -y curl libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev libdiscid-dev llvm-dev libclang-dev \
     # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.
     && groupadd --gid $USER_GID $USERNAME \
     && useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME \
@@ -28,3 +27,4 @@ RUN apt update && apt install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgs
 
 # Switch back to dialog for any ad-hoc use of apt-get
 ENV DEBIAN_FRONTEND=dialog
+
