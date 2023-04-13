@@ -1,17 +1,20 @@
-use std::error::Error;
-use std::fmt::Display;
-use std::path::Path;
-use std::sync::{Arc, RwLock};
+use std::{
+    error::Error,
+    fmt::Display,
+    path::Path,
+    sync::{Arc, RwLock},
+};
 
 use crate::data::{Config, Disc, Encoder, Track};
-use gstreamer::format::Percent;
-use gstreamer::glib::MainLoop;
-use gstreamer::tags::{Album, Artist, Composer, Date, Duration, TrackNumber};
 use gstreamer::{
-    glib, ClockTime, Element, ElementFactory, Format, GenericFormattedValue, MessageView, Pipeline,
+    format::Percent,
+    glib,
+    glib::MainLoop,
+    prelude::*,
+    tags::{Album, Artist, Composer, Date, Duration, Title, TrackNumber},
+    ClockTime, Element, ElementFactory, Format, GenericFormattedValue, MessageView, Pipeline,
     State, TagList, TagMergeMode, TagSetter, URIType,
 };
-use gstreamer::{prelude::*, tags::Title};
 
 #[derive(Debug)]
 struct MyError(String);
@@ -232,11 +235,12 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
 
 #[cfg(test)]
 mod test {
-    use gstreamer::prelude::*;
-    use gstreamer::*;
+    use gstreamer::{prelude::*, *};
     use serial_test::serial;
-    use std::env;
-    use std::sync::{Arc, RwLock};
+    use std::{
+        env,
+        sync::{Arc, RwLock},
+    };
 
     use super::extract_track;
 
