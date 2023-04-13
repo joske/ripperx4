@@ -1,36 +1,18 @@
-use std::sync::Arc;
-use std::sync::RwLock;
-use std::thread;
-
+use crate::{
+    data::{Config, Data, Encoder},
+    ripper::extract,
+};
 use confy::ConfyError;
-use gtk::builders::BoxBuilder;
-use gtk::builders::LabelBuilder;
-use gtk::builders::TextBufferBuilder;
-use gtk::builders::TextViewBuilder;
-use gtk::prelude::*;
-use gtk::Align;
-use gtk::Application;
-use gtk::ApplicationWindow;
-use gtk::Box;
-use gtk::Builder;
-use gtk::Button;
-use gtk::ButtonsType;
-use gtk::Dialog;
-use gtk::DropDown;
-use gtk::Frame;
-use gtk::MessageDialog;
-use gtk::MessageType;
-use gtk::Orientation;
-use gtk::Separator;
-use gtk::Statusbar;
-use gtk::TextView;
-
 use discid::DiscId;
-
-use crate::data::Config;
-use crate::data::Data;
-use crate::data::Encoder;
-use crate::ripper::extract;
+use gtk::{
+    prelude::*, Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog,
+    DropDown, Frame, Label, MessageDialog, MessageType, Orientation, Separator, Statusbar,
+    TextBuffer, TextView,
+};
+use std::{
+    sync::{Arc, RwLock},
+    thread,
+};
 
 pub fn build_ui(app: &Application) {
     let data = Arc::new(RwLock::new(Data {
@@ -220,22 +202,22 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
             // here we know how many tracks there are
             let tracks = discid.last_track_num() - discid.first_track_num() + 1;
             for i in 0..tracks as usize {
-                let hbox = BoxBuilder::new()
+                let hbox = Box::builder()
                     .orientation(Orientation::Horizontal)
                     .vexpand(false)
                     .hexpand(true)
                     .spacing(50)
                     .build();
                 let label_text = format!("Track {}", i + 1);
-                let label = LabelBuilder::new().label(&label_text).build();
+                let label = Label::builder().label(&label_text).build();
                 hbox.append(&label);
 
                 let r = data.read().unwrap();
                 let d = r.disc.as_ref().unwrap();
                 let title = d.tracks[i as usize].title.as_str();
-                let buffer = TextBufferBuilder::new().text(title).build();
+                let buffer = TextBuffer::builder().text(title).build();
                 let name = format!("{}", i);
-                let tb = TextViewBuilder::new()
+                let tb = TextView::builder()
                     .name(&name)
                     .buffer(&buffer)
                     .hexpand(true)
