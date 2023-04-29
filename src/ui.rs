@@ -176,13 +176,13 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
             // show_message("Disc not found!", MessageType::Error);
             // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
             let offsets = [
-                298948, 183, 26155, 44233, 64778, 80595, 117410, 144120, 159913, 178520, 204803,
-                258763, 277218,
+                298_948, 183, 26155, 44233, 64778, 80595, 117_410, 144_120, 159_913, 178_520, 204_803,
+                258_763, 277_218,
             ];
             DiscId::put(1, &offsets).unwrap()
         };
 
-        println!("Scanned: {:?}", discid);
+        println!("Scanned: {discid:?}");
         println!("id={}", discid.id());
         if let Ok(disc) = crate::musicbrainz::lookup(&discid.id()) {
             println!("disc:{}", disc.title);
@@ -214,9 +214,9 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
 
                 let r = data.read().unwrap();
                 let d = r.disc.as_ref().unwrap();
-                let title = d.tracks[i as usize].title.as_str();
+                let title = d.tracks[i].title.as_str();
                 let buffer = TextBuffer::builder().text(title).build();
-                let name = format!("{}", i);
+                let name = format!("{i}");
                 let tb = TextView::builder()
                     .name(&name)
                     .buffer(&buffer)
@@ -227,7 +227,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
                     let mut r = data_changed.write().unwrap();
                     let d = r.disc.as_mut().unwrap();
                     let tracks = &mut d.tracks;
-                    let mut track = &mut tracks[i as usize];
+                    let mut track = &mut tracks[i];
                     let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
                     println!("{}", &text);
                     track.title = text.to_string();
@@ -288,8 +288,8 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
                             let _ignore = tx.send("done".to_owned());
                         }
                         Err(e) => {
-                            let msg = format!("Error: {}", e);
-                            println!("{}", msg);
+                            let msg = format!("Error: {e}");
+                            println!("{msg}");
                             let _ignore = tx.send(msg);
                         }
                     }

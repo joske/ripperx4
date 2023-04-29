@@ -13,7 +13,7 @@ macro_rules! get_child {
 /// Lookup a disc by discid on musicbrainz
 /// Returns a `Disc` if a disc was found and parsing metadata succeeds
 pub fn lookup(discid: &str) -> Result<Disc, Box<dyn Error>> {
-    let lookup = format!("https://musicbrainz.org/ws/2/discid/{}", discid);
+    let lookup = format!("https://musicbrainz.org/ws/2/discid/{discid}");
     let body: String = ureq::get(lookup.as_str()).call()?.into_string()?;
     let release = parse_disc(body.as_str())?;
     let body: String = ureq::get(release.as_str()).call()?.into_string()?;
@@ -29,8 +29,7 @@ fn parse_disc(body: &str) -> Result<String, Box<dyn Error>> {
             if let Some(release) = get_child!(release_list, "release") {
                 if let Some(release_id) = release.attr("id") {
                     let release = format!(
-                        "https://musicbrainz.org/ws/2/release/{}?inc=%20recordings+artist-credits",
-                        release_id
+                        "https://musicbrainz.org/ws/2/release/{release_id}?inc=%20recordings+artist-credits"
                     );
                     return Ok(release);
                 }

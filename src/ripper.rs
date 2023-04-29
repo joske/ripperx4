@@ -51,7 +51,7 @@ fn extract_track(
     status: &glib::Sender<String>,
     ripping: Arc<RwLock<bool>>,
 ) -> Result<(), Box<dyn Error>> {
-    let status_message = format!("encoding {}", title);
+    let status_message = format!("encoding {title}");
     let status_message_clone = status_message.clone();
     status.send(status_message)?;
 
@@ -84,7 +84,7 @@ fn extract_track(
                     ))))
                     .value() as f64
                 * 100.0;
-            let status_message_perc = format!("{} : {:.0} %", status_message_clone, perc);
+            let status_message_perc = format!("{status_message_clone} : {perc:.0} %");
             status.send(status_message_perc).ok();
 
             if pos == dur {}
@@ -107,7 +107,7 @@ fn extract_track(
                 pipeline.set_state(State::Null).ok();
                 println!(
                     "Error from {:?}: {} ({:?})",
-                    err.src().map(|s| s.path_string()),
+                    err.src().map(gstreamer::prelude::GstObjectExt::path_string),
                     err.error(),
                     err.debug()
                 );
@@ -116,7 +116,7 @@ fn extract_track(
             MessageView::StateChanged(s) => {
                 println!(
                     "State changed from {:?}: {:?} -> {:?} ({:?})",
-                    s.src().map(|s| s.path_string()),
+                    s.src().map(gstreamer::prelude::GstObjectExt::path_string),
                     s.old(),
                     s.current(),
                     s.pending()
@@ -235,7 +235,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
 
 #[cfg(test)]
 mod test {
-    use gstreamer::{prelude::*, *};
+    use gstreamer::{prelude::*, Element, ElementFactory, Pipeline, glib};
     use serial_test::serial;
     use std::{
         env,
