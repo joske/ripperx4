@@ -11,12 +11,12 @@ gtk = { version = "0.6", package = "gtk4", features = ["v4_8"] }
 gstreamer = "0.20"
 discid = "0.5"
 confy = "0.5"
-syn = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 ureq = "2.6.2"
 minidom = "0.15"
+
+[dev-dependencies]
 serial_test = "2.0.0"
 
 [build-dependencies]
 glib-build-tools = "0.17.0"
-gtk = { version = "0.6", package = "gtk4", features = ["v4_8"] }
