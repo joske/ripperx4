@@ -15,6 +15,7 @@ use gstreamer::{
     ClockTime, Element, ElementFactory, Format, GenericFormattedValue, MessageView, Pipeline,
     State, TagList, TagMergeMode, TagSetter, URIType,
 };
+use log::{debug, error};
 
 #[derive(Debug)]
 struct MyError(String);
@@ -105,7 +106,7 @@ fn extract_track(
             }
             MessageView::Error(err) => {
                 pipeline.set_state(State::Null).ok();
-                println!(
+                error!(
                     "Error from {:?}: {} ({:?})",
                     err.src().map(gstreamer::prelude::GstObjectExt::path_string),
                     err.error(),
@@ -114,7 +115,7 @@ fn extract_track(
                 main_loop.quit();
             }
             MessageView::StateChanged(s) => {
-                println!(
+                debug!(
                     "State changed from {:?}: {:?} -> {:?} ({:?})",
                     s.src().map(gstreamer::prelude::GstObjectExt::path_string),
                     s.old(),
@@ -235,7 +236,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
 
 #[cfg(test)]
 mod test {
-    use gstreamer::{prelude::*, Element, ElementFactory, Pipeline, glib};
+    use gstreamer::{glib, prelude::*, Element, ElementFactory, Pipeline};
     use serial_test::serial;
     use std::{
         env,

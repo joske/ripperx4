@@ -9,6 +9,7 @@ use gtk::{
     DropDown, Frame, Label, MessageDialog, MessageType, Orientation, Separator, Statusbar,
     TextBuffer, TextView,
 };
+use log::debug;
 use std::{
     sync::{Arc, RwLock},
     thread,
@@ -145,7 +146,7 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, builder: &Builder) {
     let builder = builder.clone();
     let stop_button: Button = builder.object("stop_button").unwrap();
     stop_button.connect_clicked(move |_| {
-        println!("stop");
+        debug!("stop");
         let mut ripping = ripping.write().unwrap();
         if *ripping {
             *ripping = false;
@@ -168,7 +169,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
     let scroll: Box = builder.object("scroll").unwrap();
     let scan_button: Button = builder.object("scan_button").unwrap();
     scan_button.connect_clicked(move |_| {
-        println!("Scan");
+        debug!("Scan");
         let result = DiscId::read(Some(DiscId::default_device().as_str()));
         let discid = if let Ok(d) = result {
             d
@@ -176,16 +177,16 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
             // show_message("Disc not found!", MessageType::Error);
             // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
             let offsets = [
-                298_948, 183, 26155, 44233, 64778, 80595, 117_410, 144_120, 159_913, 178_520, 204_803,
-                258_763, 277_218,
+                298_948, 183, 26155, 44233, 64778, 80595, 117_410, 144_120, 159_913, 178_520,
+                204_803, 258_763, 277_218,
             ];
             DiscId::put(1, &offsets).unwrap()
         };
 
-        println!("Scanned: {discid:?}");
-        println!("id={}", discid.id());
+        debug!("Scanned: {discid:?}");
+        debug!("id={}", discid.id());
         if let Ok(disc) = crate::musicbrainz::lookup(&discid.id()) {
-            println!("disc:{}", disc.title);
+            debug!("disc:{}", disc.title);
             title_text.buffer().set_text(disc.title.as_str());
             artist_text.buffer().set_text(disc.artist.as_str());
             if disc.year.is_some() {
@@ -229,9 +230,9 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
                     let tracks = &mut d.tracks;
                     let mut track = &mut tracks[i];
                     let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
-                    println!("{}", &text);
+                    debug!("{}", &text);
                     track.title = text.to_string();
-                    println!("{}", &track.title);
+                    debug!("{}", &track.title);
                 }));
                 hbox.append(&tb);
                 tb.show();
@@ -284,12 +285,12 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
                 if let Some(disc) = &data_go.read().unwrap().disc {
                     match extract(disc, &tx, &ripping_clone3) {
                         Ok(_) => {
-                            println!("done");
+                            debug!("done");
                             let _ignore = tx.send("done".to_owned());
                         }
                         Err(e) => {
                             let msg = format!("Error: {e}");
-                            println!("{msg}");
+                            debug!("{msg}");
                             let _ignore = tx.send(msg);
                         }
                     }
