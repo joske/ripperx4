@@ -3,6 +3,9 @@ name = "ripperx4"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-2.0-only"
+description = "A CD ripper and encoder for Linux"
+authors = ["Jos Dehaes"]
+readme = "README.md"
 
 [dependencies]
 home = "0.5"
