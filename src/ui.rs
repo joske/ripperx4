@@ -2,7 +2,6 @@ use crate::{
     data::{Config, Data, Encoder},
     ripper::extract,
 };
-use confy::ConfyError;
 use discid::DiscId;
 use gtk::{
     prelude::*, Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog,
@@ -26,11 +25,11 @@ pub fn build_ui(app: &Application) {
         .add_from_resource("/ripperx4.ui")
         .expect("failed to load UI");
 
-    let window: ApplicationWindow = builder.object("window").unwrap();
+    let window: ApplicationWindow = builder.object("window").expect("Failed to get widget");
     window.set_application(Some(app));
     window.present();
 
-    let exit_button: Button = builder.object("exit").unwrap();
+    let exit_button: Button = builder.object("exit").expect("Failed to get widget");
     exit_button.connect_clicked(move |_| {
         window.close();
     });
@@ -39,10 +38,12 @@ pub fn build_ui(app: &Application) {
 
     handle_scan(data.clone(), &builder);
 
-    let config_button: Button = builder.object("config_button").unwrap();
+    let config_button: Button = builder
+        .object("config_button")
+        .expect("Failed to get widget");
     handle_config(&config_button);
 
-    let stop_button: Button = builder.object("stop_button").unwrap();
+    let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
     stop_button.set_sensitive(false);
     handle_stop(ripping.clone(), &builder);
 
@@ -51,8 +52,8 @@ pub fn build_ui(app: &Application) {
 
 fn handle_config(config_button: &Button) {
     config_button.connect_clicked(move |_| {
-        let cfg: Result<Config, ConfyError> = confy::load("ripperx4", None);
-        let config = Arc::new(RwLock::new(cfg.unwrap()));
+        let cfg: Config = confy::load("ripperx4", None).expect("Failed to load config");
+        let config = Arc::new(RwLock::new(cfg));
         let child = Box::builder()
             .orientation(Orientation::Vertical)
             .spacing(10)
@@ -122,8 +123,8 @@ fn handle_config(config_button: &Button) {
 }
 
 fn handle_disc(data: Arc<RwLock<Data>>, builder: &Builder) {
-    let title_text: TextView = builder.object("disc_title").unwrap();
-    let artist_text: TextView = builder.object("disc_artist").unwrap();
+    let title_text: TextView = builder.object("disc_title").expect("Failed to get widget");
+    let artist_text: TextView = builder.object("disc_artist").expect("Failed to get widget");
     let title_buffer = title_text.buffer();
     let data_title = data.clone();
     title_buffer.connect_changed(glib::clone!(@weak title_buffer => move |_| {
@@ -144,30 +145,30 @@ fn handle_disc(data: Arc<RwLock<Data>>, builder: &Builder) {
 
 fn handle_stop(ripping: Arc<RwLock<bool>>, builder: &Builder) {
     let builder = builder.clone();
-    let stop_button: Button = builder.object("stop_button").unwrap();
+    let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
     stop_button.connect_clicked(move |_| {
         debug!("stop");
         let mut ripping = ripping.write().unwrap();
         if *ripping {
             *ripping = false;
-            let stop_button: Button = builder.object("stop_button").unwrap();
+            let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
             stop_button.set_sensitive(false);
-            let go_button: Button = builder.object("go_button").unwrap();
+            let go_button: Button = builder.object("go_button").expect("Failed to get widget");
             go_button.set_sensitive(true); //
-            let scan_button: Button = builder.object("scan_button").unwrap();
+            let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
             scan_button.set_sensitive(true);
         }
     });
 }
 
 fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
-    let title_text: TextView = builder.object("disc_title").unwrap();
-    let artist_text: TextView = builder.object("disc_artist").unwrap();
-    let year_text: TextView = builder.object("year").unwrap();
-    let genre_text: TextView = builder.object("genre").unwrap();
-    let go_button: Button = builder.object("go_button").unwrap();
-    let scroll: Box = builder.object("scroll").unwrap();
-    let scan_button: Button = builder.object("scan_button").unwrap();
+    let title_text: TextView = builder.object("disc_title").expect("Failed to get widget");
+    let artist_text: TextView = builder.object("disc_artist").expect("Failed to get widget");
+    let year_text: TextView = builder.object("year").expect("Failed to get widget");
+    let genre_text: TextView = builder.object("genre").expect("Failed to get widget");
+    let go_button: Button = builder.object("go_button").expect("Failed to get widget");
+    let scroll: Box = builder.object("scroll").expect("Failed to get widget");
+    let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
     scan_button.connect_clicked(move |_| {
         debug!("Scan");
         let result = DiscId::read(Some(DiscId::default_device().as_str()));
@@ -264,17 +265,17 @@ fn show_message(message: &str, typ: MessageType) {
 
 fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &Builder) {
     let builder = builder.clone();
-    let go_button: Button = builder.object("go_button").unwrap();
+    let go_button: Button = builder.object("go_button").expect("Failed to get widget");
     go_button.set_sensitive(false);
-    let status: Statusbar = builder.object("statusbar").unwrap();
-    let stop_button: Button = builder.object("stop_button").unwrap();
+    let status: Statusbar = builder.object("statusbar").expect("Failed to get widget");
+    let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
     go_button.connect_clicked(glib::clone!(@weak status => move |_| {
         let mut ripping = ripping_arc.write().unwrap();
         if !*ripping {
             stop_button.set_sensitive(true);
-            let go_button: Button = builder.object("go_button").unwrap();
+            let go_button: Button = builder.object("go_button").expect("Failed to get widget");
             go_button.set_sensitive(false);
-            let scan_button: Button = builder.object("scan_button").unwrap();
+            let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
             scan_button.set_sensitive(false);
             *ripping = true;
             let context_id = status.context_id("foo");
