@@ -1,11 +1,5 @@
-use std::{
-    error::Error,
-    fmt::Display,
-    path::Path,
-    sync::{Arc, RwLock},
-};
-
 use crate::data::{Config, Disc, Encoder, Track};
+use anyhow::{anyhow, Result};
 use gstreamer::{
     format::Percent,
     glib,
@@ -16,26 +10,19 @@ use gstreamer::{
     State, TagList, TagMergeMode, TagSetter, URIType,
 };
 use log::{debug, error};
-
-#[derive(Debug)]
-struct MyError(String);
-
-impl Error for MyError {}
-
-impl Display for MyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "aargh: {}", self.0)
-    }
-}
+use std::{
+    path::Path,
+    sync::{Arc, RwLock},
+};
 
 /// Extract/Rip a `Disc` to MP3/OGG/FLAC
 pub fn extract(
     disc: &Disc,
     status: &glib::Sender<String>,
     ripping: &Arc<RwLock<bool>>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     for t in &disc.tracks {
-        if !*ripping.read().unwrap() {
+        if !*ripping.read().expect("failed to get state") {
             // ABORTED
             break;
         }
@@ -51,7 +38,7 @@ fn extract_track(
     title: &str,
     status: &glib::Sender<String>,
     ripping: Arc<RwLock<bool>>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     let status_message = format!("encoding {title}");
     let status_message_clone = status_message.clone();
     status.send(status_message)?;
@@ -65,7 +52,7 @@ fn extract_track(
     let status = status.clone();
     glib::timeout_add(std::time::Duration::from_millis(1000), move || {
         let pipeline = &pipeline_clone;
-        if !*ripping.read().unwrap() {
+        if !*ripping.read().expect("failed to get state") {
             // ABORTED
             pipeline.set_state(State::Null).ok();
             status.send("aborted".to_owned()).ok();
@@ -95,7 +82,7 @@ fn extract_track(
         glib::Continue(true)
     });
 
-    let bus = pipeline.bus().ok_or_else(|| MyError("no bus".to_owned()))?;
+    let bus = pipeline.bus().ok_or(anyhow!("no bus".to_owned()))?;
 
     bus.add_watch(move |_, msg| {
         let main_loop = &main_loop_clone;
@@ -123,7 +110,7 @@ fn extract_track(
                     s.pending()
                 );
                 if s.current() == State::Playing {
-                    *playing.clone().write().unwrap() = true;
+                    *playing.clone().write().expect("Failed to get state") = true;
                 }
             }
             _ => (),
@@ -136,7 +123,7 @@ fn extract_track(
 
 /// Create a gstreamer pipeline for extracting/encoding the `Track`
 /// Returns a linked `Pipeline`
-fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error>> {
+fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
     let config: Config = confy::load("ripperx4", None)?;
 
     gstreamer::init()?;
@@ -150,7 +137,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
     {
         let tags = tags
             .get_mut()
-            .ok_or_else(|| MyError("can not get mut".to_owned()))?;
+            .ok_or(anyhow!("can not get mut".to_owned()))?;
         tags.add::<Title>(&track.title.as_str(), TagMergeMode::ReplaceAll);
         tags.add::<Artist>(&track.artist.as_str(), TagMergeMode::ReplaceAll);
         tags.add::<TrackNumber>(&track.number, TagMergeMode::ReplaceAll);
@@ -182,7 +169,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
     std::fs::create_dir_all(
         Path::new(&location)
             .parent()
-            .ok_or_else(|| MyError("failed to create folder".to_owned()))?,
+            .ok_or(anyhow!("failed to create folder".to_owned()))?,
     )?;
     let sink = ElementFactory::make("filesink").build()?;
     sink.set_property("location", location);
@@ -196,7 +183,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
 
             let tagsetter = &id3
                 .dynamic_cast_ref::<TagSetter>()
-                .ok_or("failed to cast")?;
+                .ok_or(anyhow!("failed to cast"))?;
             tagsetter.merge_tags(&tags, TagMergeMode::ReplaceAll);
 
             let elements = &[&extractor, &enc, &id3, &sink];
@@ -210,7 +197,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
 
             let tagsetter = &vorbis
                 .dynamic_cast_ref::<TagSetter>()
-                .ok_or("failed to cast")?;
+                .ok_or(anyhow!("failed to cast"))?;
             tagsetter.merge_tags(&tags, TagMergeMode::ReplaceAll);
 
             let elements = &[&extractor, &convert, &vorbis, &mux, &sink];
@@ -223,7 +210,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
 
             let tagsetter = &id3
                 .dynamic_cast_ref::<TagSetter>()
-                .ok_or("failed to cast")?;
+                .ok_or(anyhow!("failed to cast"))?;
             tagsetter.merge_tags(&tags, TagMergeMode::ReplaceAll);
 
             pipeline.add_many(elements)?;
@@ -236,6 +223,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline, Box<dyn Error
 
 #[cfg(test)]
 mod test {
+    use anyhow::Result;
     use gstreamer::{glib, prelude::*, Element, ElementFactory, Pipeline};
     use serial_test::serial;
     use std::{
@@ -247,22 +235,22 @@ mod test {
 
     #[test]
     #[serial]
-    pub fn test_mp3() {
-        gstreamer::init().unwrap();
-        let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
+    pub fn test_mp3() -> Result<()> {
+        gstreamer::init()?;
+        let mut path = env::var("CARGO_MANIFEST_DIR")?;
         path.push_str("/resources/test/file_example_WAV_1MG.wav");
 
-        let file = ElementFactory::make("filesrc").build().unwrap();
+        let file = ElementFactory::make("filesrc").build()?;
         file.set_property("location", path.as_str());
-        let wav = ElementFactory::make("wavparse").build().unwrap();
-        let encoder = ElementFactory::make("lamemp3enc").build().unwrap();
-        let id3 = ElementFactory::make("id3v2mux").build().unwrap();
-        let sink = ElementFactory::make("filesink").build().unwrap();
+        let wav = ElementFactory::make("wavparse").build()?;
+        let encoder = ElementFactory::make("lamemp3enc").build()?;
+        let id3 = ElementFactory::make("id3v2mux").build()?;
+        let sink = ElementFactory::make("filesink").build()?;
         sink.set_property("location", "/tmp/file_example_WAV_1MG.mp3");
         let pipeline = Pipeline::new(Some("ripper"));
         let elements = &[&file, &wav, &encoder, &id3, &sink];
-        pipeline.add_many(elements).unwrap();
-        Element::link_many(elements).unwrap();
+        pipeline.add_many(elements)?;
+        Element::link_many(elements)?;
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         rx.attach(None, move |value| {
             let s = value;
@@ -275,24 +263,25 @@ mod test {
         });
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping).ok();
+        Ok(())
     }
 
     #[test]
     #[serial]
-    pub fn test_flac() {
-        gstreamer::init().unwrap();
-        let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
+    pub fn test_flac() -> Result<()> {
+        gstreamer::init()?;
+        let mut path = env::var("CARGO_MANIFEST_DIR")?;
         path.push_str("/resources/test/file_example_WAV_1MG.wav");
-        let file = ElementFactory::make("filesrc").build().unwrap();
+        let file = ElementFactory::make("filesrc").build()?;
         file.set_property("location", path.as_str());
-        let wav = ElementFactory::make("wavparse").build().unwrap();
-        let encoder = ElementFactory::make("flacenc").build().unwrap();
-        let sink = ElementFactory::make("filesink").build().unwrap();
+        let wav = ElementFactory::make("wavparse").build()?;
+        let encoder = ElementFactory::make("flacenc").build()?;
+        let sink = ElementFactory::make("filesink").build()?;
         sink.set_property("location", "/tmp/file_example_WAV_1MG.flac");
         let pipeline = Pipeline::new(Some("ripper"));
         let elements = &[&file, &wav, &encoder, &sink];
-        pipeline.add_many(elements).unwrap();
-        Element::link_many(elements).unwrap();
+        pipeline.add_many(elements)?;
+        Element::link_many(elements)?;
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         rx.attach(None, move |value| {
             let s = value;
@@ -305,26 +294,27 @@ mod test {
         });
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping).ok();
+        Ok(())
     }
 
     #[test]
     #[serial]
-    pub fn test_ogg() {
-        gstreamer::init().unwrap();
-        let mut path = env::var("CARGO_MANIFEST_DIR").unwrap();
+    pub fn test_ogg() -> Result<()> {
+        gstreamer::init()?;
+        let mut path = env::var("CARGO_MANIFEST_DIR")?;
         path.push_str("/resources/test/file_example_WAV_1MG.wav");
-        let file = ElementFactory::make("filesrc").build().unwrap();
+        let file = ElementFactory::make("filesrc").build()?;
         file.set_property("location", path.as_str());
-        let wav = ElementFactory::make("wavparse").build().unwrap();
-        let convert = ElementFactory::make("audioconvert").build().unwrap();
-        let vorbis = ElementFactory::make("vorbisenc").build().unwrap();
-        let mux = ElementFactory::make("oggmux").build().unwrap();
-        let sink = ElementFactory::make("filesink").build().unwrap();
+        let wav = ElementFactory::make("wavparse").build()?;
+        let convert = ElementFactory::make("audioconvert").build()?;
+        let vorbis = ElementFactory::make("vorbisenc").build()?;
+        let mux = ElementFactory::make("oggmux").build()?;
+        let sink = ElementFactory::make("filesink").build()?;
         sink.set_property("location", "/tmp/file_example_WAV_1MG.ogg");
         let pipeline = Pipeline::new(Some("ripper"));
         let elements = &[&file, &wav, &convert, &vorbis, &mux, &sink];
-        pipeline.add_many(elements).unwrap();
-        Element::link_many(elements).unwrap();
+        pipeline.add_many(elements)?;
+        Element::link_many(elements)?;
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         rx.attach(None, move |value| {
             let s = value;
@@ -337,5 +327,6 @@ mod test {
         });
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping).ok();
+        Ok(())
     }
 }

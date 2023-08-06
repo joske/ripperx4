@@ -228,7 +228,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
                     let mut r = data_changed.write().unwrap();
                     let d = r.disc.as_mut().unwrap();
                     let tracks = &mut d.tracks;
-                    let mut track = &mut tracks[i];
+                    let track = &mut tracks[i];
                     let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
                     debug!("{}", &text);
                     track.title = text.to_string();
