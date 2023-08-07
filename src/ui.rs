@@ -127,20 +127,28 @@ fn handle_disc(data: Arc<RwLock<Data>>, builder: &Builder) {
     let artist_text: TextView = builder.object("disc_artist").expect("Failed to get widget");
     let title_buffer = title_text.buffer();
     let data_title = data.clone();
-    title_buffer.connect_changed(glib::clone!(@weak title_buffer => move |_| {
-        if data_title.write().unwrap().disc.is_some() {
-            let new_title = title_buffer.text(&title_buffer.start_iter(), &title_buffer.end_iter(), false);
-            data_title.write().unwrap().disc.as_mut().unwrap().title = new_title.to_string();
+    title_buffer.connect_changed(move |s| {
+        if let Ok(mut data) = data_title.write() {
+            if data.disc.is_some() {
+                let new_title = s.text(&s.start_iter(), &s.end_iter(), false);
+                if let Some(disc) = data.disc.as_mut() {
+                    disc.title = new_title.to_string();
+                }
+            }
         }
-    }));
+    });
     let artist_buffer = artist_text.buffer();
     let data_artist = data;
-    artist_buffer.connect_changed(glib::clone!(@weak artist_buffer => move |_| {
-        if data_artist.write().unwrap().disc.is_some() {
-            let new_artist = artist_buffer.text(&artist_buffer.start_iter(), &artist_buffer.end_iter(), false);
-            data_artist.write().unwrap().disc.as_mut().unwrap().artist = new_artist.to_string();
+    artist_buffer.connect_changed(move |s| {
+        if let Ok(mut data) = data_artist.write() {
+            if data.disc.is_some() {
+                let new_artist = s.text(&s.start_iter(), &s.end_iter(), false);
+                if let Some(disc) = data.disc.as_mut() {
+                    disc.artist = new_artist.to_string();
+                }
+            }
         }
-    }));
+    });
 }
 
 fn handle_stop(ripping: Arc<RwLock<bool>>, builder: &Builder) {
