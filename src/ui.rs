@@ -29,6 +29,7 @@ pub fn build_ui(app: &Application) {
     window.set_application(Some(app));
     window.present();
 
+    let window_clone = window.clone();
     let exit_button: Button = builder.object("exit").expect("Failed to get widget");
     exit_button.connect_clicked(move |_| {
         window.close();
@@ -41,7 +42,7 @@ pub fn build_ui(app: &Application) {
     let config_button: Button = builder
         .object("config_button")
         .expect("Failed to get widget");
-    handle_config(&config_button);
+    handle_config(&config_button, &window_clone);
 
     let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
     stop_button.set_sensitive(false);
@@ -50,7 +51,8 @@ pub fn build_ui(app: &Application) {
     handle_go(ripping, data, &builder);
 }
 
-fn handle_config(config_button: &Button) {
+fn handle_config(config_button: &Button, window: &ApplicationWindow) {
+    let window = window.clone();
     config_button.connect_clicked(move |_| {
         let cfg: Config = confy::load("ripperx4", None).expect("Failed to load config");
         let config = Arc::new(RwLock::new(cfg));
@@ -67,17 +69,20 @@ fn handle_config(config_button: &Button) {
             .vexpand(true)
             .build();
         let path = TextView::builder().visible(true).hexpand(true).build();
-        path.buffer()
-            .set_text(config.read().unwrap().encode_path.as_str());
-        child.append(&path);
         let options = ["mp3", "ogg", "flac"];
         let combo = DropDown::from_strings(&options);
-        let selected = match config.read().unwrap().encoder {
-            Encoder::MP3 => 0,
-            Encoder::OGG => 1,
-            Encoder::FLAC => 2,
-        };
-        combo.set_selected(selected);
+        if let Ok(c) = config.read() {
+            path.buffer().set_text(c.encode_path.as_str());
+            child.append(&path);
+            let selected = match c.encoder {
+                Encoder::MP3 => 0,
+                Encoder::OGG => 1,
+                Encoder::FLAC => 2,
+            };
+            combo.set_selected(selected);
+        } else {
+            debug!("Failed to read config");
+        }
         child.append(&combo);
         let separator = Separator::builder().vexpand(true).build();
         child.append(&separator);
@@ -97,22 +102,26 @@ fn handle_config(config_button: &Button) {
             .modal(true)
             .child(&frame)
             .width_request(300)
+            .transient_for(&window)
             .build();
         ok_button.connect_clicked(glib::clone!(@weak dialog => move |_| {
-                let buf = path.buffer();
-                let new_path = path
-                    .buffer()
-                    .text(&buf.start_iter(), &buf.end_iter(), false);
-                config.write().unwrap().encode_path = new_path.to_string();
+            let buf = path.buffer();
+            let new_path = path
+                .buffer()
+                .text(&buf.start_iter(), &buf.end_iter(), false);
+            if let Ok(mut config) = config.write() {
+                config.encode_path = new_path.to_string();
                 let c = combo.selected();
-                config.write().unwrap().encoder = match c {
+                config.encoder = match c {
                     0 => Encoder::MP3,
                     1 => Encoder::OGG,
                     2 => Encoder::FLAC,
                     _ => panic!("invalid value"),
                 };
-                let c = config.read().unwrap();
-                confy::store("ripperx4", None, &*c).unwrap();
+                confy::store("ripperx4", None, &*config).ok();
+            } else {
+                debug!("Failed to write config");
+            }
             dialog.close();
         }));
         cancel_button.connect_clicked(glib::clone!(@weak dialog => move |_| {
@@ -156,8 +165,7 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, builder: &Builder) {
     let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
     stop_button.connect_clicked(move |_| {
         debug!("stop");
-        let mut ripping = ripping.write().unwrap();
-        if *ripping {
+        if let Ok(mut ripping) = ripping.write() {
             *ripping = false;
             let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
             stop_button.set_sensitive(false);
@@ -189,7 +197,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
                 298_948, 183, 26155, 44233, 64778, 80595, 117_410, 144_120, 159_913, 178_520,
                 204_803, 258_763, 277_218,
             ];
-            DiscId::put(1, &offsets).unwrap()
+            DiscId::put(1, &offsets).unwrap() // this is for testing only so this unwrap is ok
         };
 
         debug!("Scanned: {discid:?}");
@@ -198,17 +206,16 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
             debug!("disc:{}", disc.title);
             title_text.buffer().set_text(disc.title.as_str());
             artist_text.buffer().set_text(disc.artist.as_str());
-            if disc.year.is_some() {
-                year_text
-                    .buffer()
-                    .set_text(&(disc.year.unwrap().to_string()));
+            if let Some(year) = disc.year {
+                year_text.buffer().set_text(&(year.to_string()));
             }
-            if disc.genre.is_some() {
-                genre_text
-                    .buffer()
-                    .set_text(disc.genre.clone().unwrap().as_str());
+            if let Some(genre) = &disc.genre {
+                genre_text.buffer().set_text(genre.clone().as_str());
             }
-            data.write().unwrap().disc = Some(disc);
+            // panic if we can't get a write lock
+            data.write()
+                .expect("Failed to aquire write lock on data")
+                .disc = Some(disc);
             // here we know how many tracks there are
             let tracks = discid.last_track_num() - discid.first_track_num() + 1;
             for i in 0..tracks as usize {
@@ -222,31 +229,35 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
                 let label = Label::builder().label(&label_text).build();
                 hbox.append(&label);
 
-                let r = data.read().unwrap();
-                let d = r.disc.as_ref().unwrap();
-                let title = d.tracks[i].title.as_str();
-                let buffer = TextBuffer::builder().text(title).build();
-                let name = format!("{i}");
-                let tb = TextView::builder()
-                    .name(&name)
-                    .buffer(&buffer)
-                    .hexpand(true)
-                    .build();
-                let data_changed = data.clone();
-                buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
-                    let mut r = data_changed.write().unwrap();
-                    let d = r.disc.as_mut().unwrap();
-                    let tracks = &mut d.tracks;
-                    let track = &mut tracks[i];
-                    let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
-                    debug!("{}", &text);
-                    track.title = text.to_string();
-                    debug!("{}", &track.title);
-                }));
-                hbox.append(&tb);
-                tb.show();
-                scroll.append(&hbox);
-                hbox.show();
+                if let Ok(r) = data.read() {
+                    if let Some(d) = r.disc.as_ref() {
+                        let title = d.tracks[i].title.as_str();
+                        let buffer = TextBuffer::builder().text(title).build();
+                        let name = format!("{i}");
+                        let tb = TextView::builder()
+                            .name(&name)
+                            .buffer(&buffer)
+                            .hexpand(true)
+                            .build();
+                        let data_changed = data.clone();
+                        buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
+                            if let Ok(mut r) = data_changed.write() {
+                                if let Some(d) = r.disc.as_mut() {
+                                    let tracks = &mut d.tracks;
+                                    let track = &mut tracks[i];
+                                    let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+                                    debug!("{}", &text);
+                                    track.title = text.to_string();
+                                    debug!("{}", &track.title);
+                                }
+                            }
+                        }));
+                        hbox.append(&tb);
+                        tb.show();
+                        scroll.append(&hbox);
+                        hbox.show();
+                    }
+                }
             }
             scroll.show();
         } else {
@@ -278,8 +289,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
     let status: Statusbar = builder.object("statusbar").expect("Failed to get widget");
     let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
     go_button.connect_clicked(glib::clone!(@weak status => move |_| {
-        let mut ripping = ripping_arc.write().unwrap();
-        if !*ripping {
+        if let Ok(mut ripping) = ripping_arc.write() {
             stop_button.set_sensitive(true);
             let go_button: Button = builder.object("go_button").expect("Failed to get widget");
             go_button.set_sensitive(false);
@@ -290,20 +300,21 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
             let (tx, rx) = gstreamer::glib::MainContext::channel(gstreamer::glib::PRIORITY_DEFAULT);
             let ripping_clone3 = ripping_arc.clone();
             thread::spawn(glib::clone!(@weak data => move || {
-                let data_go = data;
-                if let Some(disc) = &data_go.read().unwrap().disc {
-                    match extract(disc, &tx, &ripping_clone3) {
-                        Ok(_) => {
-                            debug!("done");
-                            let _ignore = tx.send("done".to_owned());
-                        }
-                        Err(e) => {
-                            let msg = format!("Error: {e}");
-                            debug!("{msg}");
-                            let _ignore = tx.send(msg);
+                if let Ok(data_go) = data.clone().read() {
+                    if let Some(disc) = &data_go.disc {
+                        match extract(disc, &tx, &ripping_clone3) {
+                            Ok(_) => {
+                                debug!("done");
+                                let _ignore = tx.send("done".to_owned());
+                            }
+                            Err(e) => {
+                                let msg = format!("Error: {e}");
+                                debug!("{msg}");
+                                let _ignore = tx.send(msg);
+                            }
                         }
                     }
-                };
+                }
             }));
             let scan_button_clone = scan_button;
             let go_button_clone = go_button;
