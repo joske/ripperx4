@@ -37,7 +37,7 @@ pub fn build_ui(app: &Application) {
 
     handle_disc(data.clone(), &builder);
 
-    handle_scan(data.clone(), &builder);
+    handle_scan(data.clone(), &builder, &window_clone);
 
     let config_button: Button = builder
         .object("config_button")
@@ -177,7 +177,8 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, builder: &Builder) {
     });
 }
 
-fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
+fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationWindow) {
+    let window = window.clone();
     let title_text: TextView = builder.object("disc_title").expect("Failed to get widget");
     let artist_text: TextView = builder.object("disc_artist").expect("Failed to get widget");
     let year_text: TextView = builder.object("year").expect("Failed to get widget");
@@ -191,7 +192,8 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
         let discid = if let Ok(d) = result {
             d
         } else {
-            // show_message("Disc not found!", MessageType::Error);
+            // show_message("Disc not found!", MessageType::Error, &window);
+            // return;
             // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
             let offsets = [
                 298_948, 183, 26155, 44233, 64778, 80595, 117_410, 144_120, 159_913, 178_520,
@@ -261,19 +263,20 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder) {
             }
             scroll.show();
         } else {
-            show_message("Disc not found!", MessageType::Error);
+            show_message("Disc not found!", MessageType::Error, &window);
         }
         go_button.set_sensitive(true);
     });
 }
 
-fn show_message(message: &str, typ: MessageType) {
+fn show_message(message: &str, typ: MessageType, window: &ApplicationWindow) {
     let dialog = MessageDialog::builder()
         .title("Error")
         .modal(true)
         .buttons(ButtonsType::Ok)
         .message_type(typ)
         .text(message)
+        .transient_for(window)
         .width_request(300)
         .build();
     dialog.connect_response(glib::clone!(@weak dialog => move |_, _| {
