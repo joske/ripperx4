@@ -58,28 +58,24 @@ fn extract_track(
             status.send("aborted".to_owned()).ok();
             return glib::Continue(false);
         }
-        let pos = pipeline.query_position_generic(Format::Percent);
-        let dur = pipeline.query_duration_generic(Format::Percent);
-        if pos.is_some() && dur.is_some() {
-            let perc = pos
-                .unwrap_or(GenericFormattedValue::Percent(Some(Percent::from_percent(
-                    0,
-                ))))
-                .value() as f64
-                / dur
-                    .unwrap_or(GenericFormattedValue::Percent(Some(Percent::from_percent(
-                        1,
-                    ))))
-                    .value() as f64
-                * 100.0;
-            let status_message_perc = format!("{status_message_clone} : {perc:.0} %");
-            status.send(status_message_perc).ok();
+        let zero = GenericFormattedValue::Percent(Some(Percent::from_percent(0)));
+        let one = GenericFormattedValue::Percent(Some(Percent::from_percent(1)));
+        let pos = pipeline
+            .query_position_generic(Format::Percent)
+            .unwrap_or(zero);
+        let dur = pipeline
+            .query_duration_generic(Format::Percent)
+            .unwrap_or(one);
+        let perc = pos.value() as f64 / dur.value() as f64 * 100.0;
+        let status_message_perc = format!("{status_message_clone} : {perc:.0} %");
+        status.send(status_message_perc).ok();
 
-            if pos == dur {}
+        if pos == dur {
+            // done
+            glib::Continue(false)
         } else {
-            return glib::Continue(false);
+            glib::Continue(true)
         }
-        glib::Continue(true)
     });
 
     let bus = pipeline.bus().ok_or(anyhow!("no bus".to_owned()))?;
@@ -253,16 +249,14 @@ mod test {
         Element::link_many(elements)?;
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         rx.attach(None, move |value| {
-            let s = value;
-            {
-                if s == "done" {
-                    return glib::Continue(false);
-                }
+            if value == "done" {
+                glib::Continue(false)
+            } else {
                 glib::Continue(true)
             }
         });
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(pipeline, "track", &tx, ripping).ok();
+        extract_track(pipeline, "track", &tx, ripping)?;
         Ok(())
     }
 
@@ -284,16 +278,14 @@ mod test {
         Element::link_many(elements)?;
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         rx.attach(None, move |value| {
-            let s = value;
-            {
-                if s == "done" {
-                    return glib::Continue(false);
-                }
+            if value == "done" {
+                glib::Continue(false)
+            } else {
                 glib::Continue(true)
             }
         });
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(pipeline, "track", &tx, ripping).ok();
+        extract_track(pipeline, "track", &tx, ripping)?;
         Ok(())
     }
 
@@ -317,16 +309,14 @@ mod test {
         Element::link_many(elements)?;
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         rx.attach(None, move |value| {
-            let s = value;
-            {
-                if s == "done" {
-                    return glib::Continue(false);
-                }
+            if value == "done" {
+                glib::Continue(false)
+            } else {
                 glib::Continue(true)
             }
         });
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(pipeline, "track", &tx, ripping).ok();
+        extract_track(pipeline, "track", &tx, ripping)?;
         Ok(())
     }
 }
