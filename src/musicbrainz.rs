@@ -49,7 +49,7 @@ fn parse_metadata(xml: &str) -> Result<Disc> {
             disc.title = title.text();
         }
 
-        disc.artist = get_artist(release).ok_or(anyhow!("Failed to get artist"))?;
+        disc.artist = get_artist(release)?;
 
         if let Some(medium_list) = get_child!(release, "medium-list") {
             if let Some(medium) = medium_list.children().next() {
@@ -66,8 +66,7 @@ fn parse_metadata(xml: &str) -> Result<Disc> {
                             if let Some(title) = get_child!(recording, "title") {
                                 dtrack.title = title.text();
                             }
-                            dtrack.artist =
-                                get_artist(recording).ok_or(anyhow!("Failed to get artist"))?;
+                            dtrack.artist = get_artist(recording)?;
                         }
                         disc.tracks.push(dtrack);
                     }
@@ -80,11 +79,15 @@ fn parse_metadata(xml: &str) -> Result<Disc> {
 }
 
 /// Parse out the Artist name from a `artist-credit` XML element
-fn get_artist(element: &Element) -> Option<String> {
-    let artist_credit = get_child!(element, "artist-credit")?;
-    let name_credit = get_child!(artist_credit, "name-credit")?;
-    let artist = get_child!(name_credit, "artist")?;
-    Some(get_child!(artist, "name")?.text())
+fn get_artist(element: &Element) -> Result<String> {
+    let artist_credit =
+        get_child!(element, "artist-credit").ok_or(anyhow!("failed to get artist credit"))?;
+    let name_credit =
+        get_child!(artist_credit, "name-credit").ok_or(anyhow!("failed to get name credit"))?;
+    let artist = get_child!(name_credit, "artist").ok_or(anyhow!("failed to get artist"))?;
+    Ok(get_child!(artist, "name")
+        .ok_or(anyhow!("failed to get artist name"))?
+        .text())
 }
 
 #[cfg(test)]
