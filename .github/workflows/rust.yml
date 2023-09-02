@@ -1,29 +1,23 @@
 name: Rust
-
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-
+on: [push, pull_request]
 env:
   CARGO_TERM_COLOR: always
-
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
 jobs:
   build:
-
-    runs-on: ubuntu-22.10
-
+    runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Install glib/gtk dev
-      run: sudo apt-get install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev
-    - name: Build
-      run: cargo build
-    - name: Run tests
-      run: cargo test
-      
-    - uses: actions/upload-artifact@v3
-      with:
-        name: ripperx4
-        path: target/debug/ripperx4
+      - uses: actions/checkout@v3
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.3
+      - name: Install glib/gtk dev
+        run: brew install gtk4 gstreamer libdiscid sccache
+      - name: Build
+        run: cargo build
+      - name: Run tests
+        run: cargo test
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ripperx4
+          path: target/debug/ripperx4
