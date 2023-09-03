@@ -3,7 +3,7 @@ name = "ripperx4"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-2.0-only"
-description = "A CD ripper and encoder for Linux"
+description = "A CD ripper and encoder written in Rust"
 authors = ["Jos Dehaes"]
 readme = "README.md"
 
@@ -11,7 +11,7 @@ readme = "README.md"
 home = "0.5"
 glib = "0.18"
 gtk = { version = "0.7", package = "gtk4", features = ["v4_8"] }
-gstreamer = "0.20"
+gstreamer = "0.21"
 discid = "0.5"
 confy = "0.5"
 serde = { version = "1.0", features = ["derive"] }

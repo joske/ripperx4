@@ -3,6 +3,7 @@ use crate::{
     ripper::extract,
 };
 use discid::DiscId;
+use glib::ControlFlow;
 use gtk::{
     prelude::*, Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog,
     DropDown, Frame, Label, MessageDialog, MessageType, Orientation, Separator, Statusbar,
@@ -300,7 +301,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
             scan_button.set_sensitive(false);
             *ripping = true;
             let context_id = status.context_id("foo");
-            let (tx, rx) = gstreamer::glib::MainContext::channel(gstreamer::glib::PRIORITY_DEFAULT);
+            let (tx, rx) = gstreamer::glib::MainContext::channel(glib::source::Priority::default());
             let ripping_clone3 = ripping_arc.clone();
             thread::spawn(glib::clone!(@weak data => move || {
                 if let Ok(data_go) = data.clone().read() {
@@ -331,9 +332,9 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
                         scan_button_clone.set_sensitive(true);
                         go_button_clone.set_sensitive(true);
                         stop_button_clone.set_sensitive(false);
-                        return gstreamer::glib::Continue(false);
+                        return ControlFlow::Break;
                     }
-                    gstreamer::glib::Continue(true)
+                    ControlFlow::Continue
                 }
             });
         }

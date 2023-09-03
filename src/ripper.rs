@@ -1,5 +1,6 @@
 use crate::data::{Config, Disc, Encoder, Track};
 use anyhow::{anyhow, Result};
+use glib::ControlFlow;
 use gstreamer::{
     format::Percent,
     glib,
@@ -9,7 +10,7 @@ use gstreamer::{
     ClockTime, Element, ElementFactory, Format, GenericFormattedValue, MessageView, Pipeline,
     State, TagList, TagMergeMode, TagSetter, URIType,
 };
-use log::{debug, error};
+use log::error;
 use std::{
     path::Path,
     sync::{Arc, RwLock},
@@ -43,7 +44,6 @@ fn extract_track(
     let status_message_clone = status_message.clone();
     status.send(status_message)?;
 
-    let playing = Arc::new(RwLock::new(false));
     let main_loop = MainLoop::new(None, false);
     let main_loop_clone = main_loop.clone();
 
@@ -56,7 +56,7 @@ fn extract_track(
             // ABORTED
             pipeline.set_state(State::Null).ok();
             status.send("aborted".to_owned()).ok();
-            return glib::Continue(false);
+            return ControlFlow::Break;
         }
         let zero = GenericFormattedValue::Percent(Some(Percent::from_percent(0)));
         let one = GenericFormattedValue::Percent(Some(Percent::from_percent(1)));
@@ -68,19 +68,20 @@ fn extract_track(
             .unwrap_or(one);
         let perc = pos.value() as f64 / dur.value() as f64 * 100.0;
         let status_message_perc = format!("{status_message_clone} : {perc:.0} %");
-        status.send(status_message_perc).ok();
+        status.send(status_message_perc.clone()).ok();
 
         if pos == dur {
             // done
-            glib::Continue(false)
+            status.send("done".to_owned()).ok();
+            ControlFlow::Break
         } else {
-            glib::Continue(true)
+            ControlFlow::Continue
         }
     });
 
     let bus = pipeline.bus().ok_or(anyhow!("no bus".to_owned()))?;
 
-    bus.add_watch(move |_, msg| {
+    let guard = bus.add_watch(move |_, msg| {
         let main_loop = &main_loop_clone;
         match msg.view() {
             MessageView::Eos(..) => {
@@ -97,23 +98,12 @@ fn extract_track(
                 );
                 main_loop.quit();
             }
-            MessageView::StateChanged(s) => {
-                debug!(
-                    "State changed from {:?}: {:?} -> {:?} ({:?})",
-                    s.src().map(gstreamer::prelude::GstObjectExt::path_string),
-                    s.old(),
-                    s.current(),
-                    s.pending()
-                );
-                if s.current() == State::Playing {
-                    *playing.clone().write().expect("Failed to get state") = true;
-                }
-            }
             _ => (),
         }
-        glib::Continue(true)
+        ControlFlow::Continue
     })?;
     main_loop.run();
+    drop(guard);
     Ok(())
 }
 
@@ -170,7 +160,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
     let sink = ElementFactory::make("filesink").build()?;
     sink.set_property("location", location);
 
-    let pipeline = Pipeline::new(Some("ripper"));
+    let pipeline = Pipeline::new();
     match config.encoder {
         Encoder::MP3 => {
             let enc = ElementFactory::make("lamemp3enc").build()?;
@@ -231,6 +221,28 @@ mod test {
 
     #[test]
     #[serial]
+    pub fn test_bad_pipeline() -> Result<()> {
+        gstreamer::init()?;
+        let mut path = env::var("CARGO_MANIFEST_DIR")?;
+        path.push_str("/blah.wav");
+
+        let file = ElementFactory::make("filesrc").build()?;
+        file.set_property("location", path.as_str());
+        let sink = ElementFactory::make("filesink").build()?;
+        sink.set_property("location", "/tmp/file_example_WAV_1MG.mp3");
+        let pipeline = Pipeline::new();
+        let elements = &[&file, &sink];
+        pipeline.add_many(elements)?;
+        Element::link_many(elements)?;
+        let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
+        let ripping = Arc::new(RwLock::new(true));
+        let result = extract_track(pipeline, "track", &tx, ripping);
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
     pub fn test_mp3() -> Result<()> {
         gstreamer::init()?;
         let mut path = env::var("CARGO_MANIFEST_DIR")?;
@@ -243,18 +255,11 @@ mod test {
         let id3 = ElementFactory::make("id3v2mux").build()?;
         let sink = ElementFactory::make("filesink").build()?;
         sink.set_property("location", "/tmp/file_example_WAV_1MG.mp3");
-        let pipeline = Pipeline::new(Some("ripper"));
+        let pipeline = Pipeline::new();
         let elements = &[&file, &wav, &encoder, &id3, &sink];
         pipeline.add_many(elements)?;
         Element::link_many(elements)?;
-        let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        rx.attach(None, move |value| {
-            if value == "done" {
-                glib::Continue(false)
-            } else {
-                glib::Continue(true)
-            }
-        });
+        let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
         Ok(())
@@ -272,18 +277,11 @@ mod test {
         let encoder = ElementFactory::make("flacenc").build()?;
         let sink = ElementFactory::make("filesink").build()?;
         sink.set_property("location", "/tmp/file_example_WAV_1MG.flac");
-        let pipeline = Pipeline::new(Some("ripper"));
+        let pipeline = Pipeline::new();
         let elements = &[&file, &wav, &encoder, &sink];
         pipeline.add_many(elements)?;
         Element::link_many(elements)?;
-        let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        rx.attach(None, move |value| {
-            if value == "done" {
-                glib::Continue(false)
-            } else {
-                glib::Continue(true)
-            }
-        });
+        let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
         Ok(())
@@ -303,18 +301,11 @@ mod test {
         let mux = ElementFactory::make("oggmux").build()?;
         let sink = ElementFactory::make("filesink").build()?;
         sink.set_property("location", "/tmp/file_example_WAV_1MG.ogg");
-        let pipeline = Pipeline::new(Some("ripper"));
+        let pipeline = Pipeline::new();
         let elements = &[&file, &wav, &convert, &vorbis, &mux, &sink];
         pipeline.add_many(elements)?;
         Element::link_many(elements)?;
-        let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        rx.attach(None, move |value| {
-            if value == "done" {
-                glib::Continue(false)
-            } else {
-                glib::Continue(true)
-            }
-        });
+        let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
         Ok(())
