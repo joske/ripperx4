@@ -66,7 +66,7 @@ fn extract_track(
         let dur = pipeline
             .query_duration_generic(Format::Percent)
             .unwrap_or(one);
-        let perc = pos.value() as f64 / dur.value() as f64 * 100.0;
+        let perc = f64::try_from(pos.value() as f64 / dur.value() as f64 * 100.0).unwrap_or(0.0);
         let status_message_perc = format!("{status_message_clone} : {perc:.0} %");
         status.send(status_message_perc.clone()).ok();
 
@@ -179,6 +179,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
         Encoder::OGG => {
             let convert = ElementFactory::make("audioconvert").build()?;
             let vorbis = ElementFactory::make("vorbisenc").build()?;
+            vorbis.set_property("quality", 0_f32);
             let mux = ElementFactory::make("oggmux").build()?;
 
             let tagsetter = &vorbis

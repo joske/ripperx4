@@ -67,7 +67,7 @@ fn parse_metadata(xml: &str) -> Result<Disc> {
             ..Default::default()
         };
         let num: Option<u32> = get_child!(track, "number").and_then(|num| num.text().parse().ok());
-        dtrack.number = num.unwrap_or(i as u32);
+        dtrack.number = num.unwrap_or(u32::try_from(i)?);
 
         if let Some(recording) = get_child!(track, "recording") {
             if let Some(title) = get_child!(recording, "title") {

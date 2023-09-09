@@ -220,8 +220,8 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
                 .expect("Failed to aquire write lock on data")
                 .disc = Some(disc);
             // here we know how many tracks there are
-            let tracks = discid.last_track_num() - discid.first_track_num() + 1;
-            for i in 0..tracks as usize {
+            let tracks = usize::try_from(discid.last_track_num() - discid.first_track_num() + 1).expect("Failed to convert track number");
+            for i in 0..tracks  {
                 let hbox = Box::builder()
                     .orientation(Orientation::Horizontal)
                     .vexpand(false)
