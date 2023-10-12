@@ -40,10 +40,9 @@ fn get_release_url(body: &str) -> Result<String> {
     let release_id = release
         .attr("id")
         .ok_or(anyhow!("failed to get release id"))?;
-    let release = format!(
+    Ok(format!(
         "https://musicbrainz.org/ws/2/release/{release_id}?inc=%20recordings+artist-credits"
-    );
-    Ok(release)
+    ))
 }
 
 /// Parse the metadata for the given release
