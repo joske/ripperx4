@@ -66,7 +66,7 @@ fn extract_track(
         let dur = pipeline
             .query_duration_generic(Format::Percent)
             .unwrap_or(one);
-        let perc = f64::try_from(pos.value() as f64 / dur.value() as f64 * 100.0).unwrap_or(0.0);
+        let perc = pos.value() as f64 / dur.value() as f64 * 100.0;
         let status_message_perc = format!("{status_message_clone} : {perc:.0} %");
         status.send(status_message_perc.clone()).ok();
 

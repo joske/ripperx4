@@ -51,9 +51,7 @@ fn get_release_url(body: &str) -> Result<String> {
 fn parse_metadata(xml: &str) -> Result<Disc> {
     let metadata: minidom::Element = xml.parse()?;
     let release = get_first_child!(metadata, "failed to get release")?;
-    let mut disc = Disc {
-        ..Default::default()
-    };
+    let mut disc = Disc::default();
     if let Some(title) = get_child!(release, "title") {
         disc.title = title.text();
     }
@@ -64,9 +62,7 @@ fn parse_metadata(xml: &str) -> Result<Disc> {
     let medium = get_first_child!(medium_list, "failed to get medium")?;
     let track_list = get_child!(medium, "track-list", "failed to get track list")?;
     for (i, track) in track_list.children().enumerate() {
-        let mut dtrack = Track {
-            ..Default::default()
-        };
+        let mut dtrack = Track::default();
         let num: Option<u32> = get_child!(track, "number").and_then(|num| num.text().parse().ok());
         dtrack.number = num.unwrap_or(u32::try_from(i)?);
 
