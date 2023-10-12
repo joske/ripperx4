@@ -6,6 +6,18 @@ macro_rules! get_child {
     ($parent:ident, $child:literal) => {
         $parent.get_child($child, "http://musicbrainz.org/ns/mmd-2.0#")
     };
+    ($parent:ident, $child:literal, $err:literal) => {
+        get_child!($parent, $child).ok_or(anyhow!($err))
+    };
+}
+
+macro_rules! get_first_child {
+    ($parent:ident) => {
+        $parent.children().next()
+    };
+    ($parent:ident, $err:literal) => {
+        get_first_child!($parent).ok_or(anyhow!($err))
+    };
 }
 
 /// Lookup a disc by discid on musicbrainz
@@ -22,13 +34,9 @@ pub fn lookup(discid: &str) -> Result<Disc> {
 /// Parses the XML returned by the query on discid
 fn get_release_url(body: &str) -> Result<String> {
     let metadata: minidom::Element = body.parse()?;
-    let disc = metadata
-        .children()
-        .next()
-        .ok_or(anyhow!("failed to get disc"))?;
-    let release_list =
-        get_child!(disc, "release-list").ok_or(anyhow!("failed to get release list"))?;
-    let release = get_child!(release_list, "release").ok_or(anyhow!("failed to get release"))?;
+    let disc = get_first_child!(metadata, "failed to get disc")?;
+    let release_list = get_child!(disc, "release-list", "failed to get release list")?;
+    let release = get_child!(release_list, "release", "failed to get release")?;
     let release_id = release
         .attr("id")
         .ok_or(anyhow!("failed to get release id"))?;
@@ -42,10 +50,7 @@ fn get_release_url(body: &str) -> Result<String> {
 /// Returns a `Disc` if  parsing succeeds
 fn parse_metadata(xml: &str) -> Result<Disc> {
     let metadata: minidom::Element = xml.parse()?;
-    let release = metadata
-        .children()
-        .next()
-        .ok_or(anyhow!("failed to get release"))?;
+    let release = get_first_child!(metadata, "failed to get release")?;
     let mut disc = Disc {
         ..Default::default()
     };
@@ -55,13 +60,9 @@ fn parse_metadata(xml: &str) -> Result<Disc> {
 
     disc.artist = get_artist(release)?;
 
-    let medium_list =
-        get_child!(release, "medium-list").ok_or(anyhow!("failed to get medium list"))?;
-    let medium = medium_list
-        .children()
-        .next()
-        .ok_or(anyhow!("failed to get medium"))?;
-    let track_list = get_child!(medium, "track-list").ok_or(anyhow!("failed to get track list"))?;
+    let medium_list = get_child!(release, "medium-list", "failed to get medium list")?;
+    let medium = get_first_child!(medium_list, "failed to get medium")?;
+    let track_list = get_child!(medium, "track-list", "failed to get track list")?;
     for (i, track) in track_list.children().enumerate() {
         let mut dtrack = Track {
             ..Default::default()
@@ -82,14 +83,10 @@ fn parse_metadata(xml: &str) -> Result<Disc> {
 
 /// Parse out the Artist name from a `artist-credit` XML element
 fn get_artist(element: &Element) -> Result<String> {
-    let artist_credit =
-        get_child!(element, "artist-credit").ok_or(anyhow!("failed to get artist credit"))?;
-    let name_credit =
-        get_child!(artist_credit, "name-credit").ok_or(anyhow!("failed to get name credit"))?;
-    let artist = get_child!(name_credit, "artist").ok_or(anyhow!("failed to get artist"))?;
-    Ok(get_child!(artist, "name")
-        .ok_or(anyhow!("failed to get artist name"))?
-        .text())
+    let artist_credit = get_child!(element, "artist-credit", "failed to get artist credit")?;
+    let name_credit = get_child!(artist_credit, "name-credit", "failed to get name credit")?;
+    let artist = get_child!(name_credit, "artist", "failed to get artist")?;
+    Ok(get_child!(artist, "name", "failed to get artist name")?.text())
 }
 
 #[cfg(test)]
