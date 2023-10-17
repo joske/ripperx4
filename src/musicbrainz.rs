@@ -33,7 +33,7 @@ pub fn lookup(discid: &str) -> Result<Disc> {
 /// Return an URL to a release for the given disc
 /// Parses the XML returned by the query on discid
 fn get_release_url(body: &str) -> Result<String> {
-    let metadata: minidom::Element = body.parse()?;
+    let metadata: Element = body.parse()?;
     let disc = get_first_child!(metadata, "failed to get disc")?;
     let release_list = get_child!(disc, "release-list", "failed to get release list")?;
     let release = get_child!(release_list, "release", "failed to get release")?;
@@ -46,9 +46,9 @@ fn get_release_url(body: &str) -> Result<String> {
 }
 
 /// Parse the metadata for the given release
-/// Returns a `Disc` if  parsing succeeds
+/// Returns a `Disc` if parsing succeeds
 fn parse_metadata(xml: &str) -> Result<Disc> {
-    let metadata: minidom::Element = xml.parse()?;
+    let metadata: Element = xml.parse()?;
     let release = get_first_child!(metadata, "failed to get release")?;
     let mut disc = Disc::default();
     if let Some(title) = get_child!(release, "title") {
