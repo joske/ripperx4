@@ -36,7 +36,7 @@ pub struct Config {
     pub encoder: Encoder,
 }
 
-impl std::default::Default for Config {
+impl Default for Config {
     fn default() -> Self {
         let home = home::home_dir().expect("Failed to get home dir!");
         let path = format!("{}/Music/", home.display());
