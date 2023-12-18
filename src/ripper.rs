@@ -28,7 +28,7 @@ pub fn extract(
             break;
         }
         let pipeline = create_pipeline(t, disc)?;
-        extract_track(pipeline, t.title.as_str(), status, ripping.clone())?;
+        extract_track(pipeline, &t.title, status, ripping.clone())?;
     }
     Ok(())
 }
@@ -115,7 +115,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
     gstreamer::init()?;
 
     let cdda = format!("cdda://{}", track.number);
-    let extractor = Element::make_from_uri(URIType::Src, cdda.as_str(), Some("cd_src"))?;
+    let extractor = Element::make_from_uri(URIType::Src, &cdda, Some("cd_src"))?;
     extractor.set_property("read-speed", 0_i32);
 
     let id3 = ElementFactory::make("id3v2mux").build()?;
@@ -228,7 +228,7 @@ mod test {
         path.push_str("/blah.wav");
 
         let file = ElementFactory::make("filesrc").build()?;
-        file.set_property("location", path.as_str());
+        file.set_property("location", &path);
         let sink = ElementFactory::make("filesink").build()?;
         sink.set_property("location", "/tmp/file_example_WAV_1MG.mp3");
         let pipeline = Pipeline::new();
@@ -250,7 +250,7 @@ mod test {
         path.push_str("/resources/test/file_example_WAV_1MG.wav");
 
         let file = ElementFactory::make("filesrc").build()?;
-        file.set_property("location", path.as_str());
+        file.set_property("location", &path);
         let wav = ElementFactory::make("wavparse").build()?;
         let encoder = ElementFactory::make("lamemp3enc").build()?;
         let id3 = ElementFactory::make("id3v2mux").build()?;
@@ -273,7 +273,7 @@ mod test {
         let mut path = env::var("CARGO_MANIFEST_DIR")?;
         path.push_str("/resources/test/file_example_WAV_1MG.wav");
         let file = ElementFactory::make("filesrc").build()?;
-        file.set_property("location", path.as_str());
+        file.set_property("location", &path);
         let wav = ElementFactory::make("wavparse").build()?;
         let encoder = ElementFactory::make("flacenc").build()?;
         let sink = ElementFactory::make("filesink").build()?;
@@ -295,7 +295,7 @@ mod test {
         let mut path = env::var("CARGO_MANIFEST_DIR")?;
         path.push_str("/resources/test/file_example_WAV_1MG.wav");
         let file = ElementFactory::make("filesrc").build()?;
-        file.set_property("location", path.as_str());
+        file.set_property("location", &path);
         let wav = ElementFactory::make("wavparse").build()?;
         let convert = ElementFactory::make("audioconvert").build()?;
         let vorbis = ElementFactory::make("vorbisenc").build()?;

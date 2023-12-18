@@ -24,10 +24,10 @@ macro_rules! get_first_child {
 /// Returns a `Disc` if a disc was found and parsing metadata succeeds
 pub fn lookup(discid: &str) -> Result<Disc> {
     let lookup = format!("https://musicbrainz.org/ws/2/discid/{discid}");
-    let body: String = ureq::get(lookup.as_str()).call()?.into_string()?;
-    let release = get_release_url(body.as_str())?;
-    let body: String = ureq::get(release.as_str()).call()?.into_string()?;
-    parse_metadata(body.as_str())
+    let body: String = ureq::get(&lookup).call()?.into_string()?;
+    let release = get_release_url(&body)?;
+    let body: String = ureq::get(&release).call()?.into_string()?;
+    parse_metadata(&body)
 }
 
 /// Return an URL to a release for the given disc
@@ -108,7 +108,7 @@ mod test {
         let mut path = env::var("CARGO_MANIFEST_DIR")?;
         path.push_str("/resources/test/direstraits-releases-metadata.xml");
         let contents = fs::read_to_string(path)?;
-        let disc = parse_metadata(contents.as_str())?;
+        let disc = parse_metadata(&contents)?;
         assert_eq!("Dire Straits", disc.artist);
         assert_eq!("Money for Nothing", disc.title);
         assert_eq!(12, disc.tracks.len());

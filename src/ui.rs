@@ -73,7 +73,7 @@ fn handle_config(config_button: &Button, window: &ApplicationWindow) {
         let options = ["mp3", "ogg", "flac"];
         let combo = DropDown::from_strings(&options);
         if let Ok(c) = config.read() {
-            path.buffer().set_text(c.encode_path.as_str());
+            path.buffer().set_text(&c.encode_path);
             child.append(&path);
             let selected = match c.encoder {
                 Encoder::MP3 => 0,
@@ -189,7 +189,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
     scan_button.connect_clicked(move |_| {
         debug!("Scan");
-        let result = DiscId::read(Some(DiscId::default_device().as_str()));
+        let result = DiscId::read(Some(&DiscId::default_device()));
         let discid = if let Ok(d) = result {
             d
         } else {
@@ -207,13 +207,13 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
         debug!("id={}", discid.id());
         if let Ok(disc) = crate::musicbrainz::lookup(&discid.id()) {
             debug!("disc:{}", disc.title);
-            title_text.buffer().set_text(disc.title.as_str());
-            artist_text.buffer().set_text(disc.artist.as_str());
+            title_text.buffer().set_text(&disc.title);
+            artist_text.buffer().set_text(&disc.artist);
             if let Some(year) = disc.year {
                 year_text.buffer().set_text(&(year.to_string()));
             }
             if let Some(genre) = &disc.genre {
-                genre_text.buffer().set_text(genre.clone().as_str());
+                genre_text.buffer().set_text(&genre.clone());
             }
             // panic if we can't get a write lock
             data.write()
@@ -234,7 +234,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
 
                 if let Ok(r) = data.read() {
                     if let Some(d) = r.disc.as_ref() {
-                        let title = d.tracks[i].title.as_str();
+                        let title = &d.tracks[i].title;
                         let buffer = TextBuffer::builder().text(title).build();
                         let name = format!("{i}");
                         let tb = TextView::builder()
@@ -327,7 +327,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
                 let s = value;
                 {
                     status.pop(context_id);
-                    status.push(context_id, s.as_str());
+                    status.push(context_id, &s);
                     if s == "done" {
                         scan_button_clone.set_sensitive(true);
                         go_button_clone.set_sensitive(true);
