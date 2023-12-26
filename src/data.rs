@@ -29,6 +29,7 @@ pub enum Encoder {
     MP3,
     OGG,
     FLAC,
+    OPUS,
 }
 #[derive(Serialize, Deserialize)]
 pub struct Config {

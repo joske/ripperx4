@@ -145,6 +145,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
         Encoder::MP3 => ".mp3",
         Encoder::OGG => ".ogg",
         Encoder::FLAC => ".flac",
+        Encoder::OPUS => ".ogg",
     };
 
     let location = format!(
@@ -200,6 +201,20 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
                 .ok_or(anyhow!("failed to cast"))?;
             tagsetter.merge_tags(&tags, TagMergeMode::ReplaceAll);
 
+            pipeline.add_many(elements)?;
+            Element::link_many(elements)?;
+        }
+        Encoder::OPUS => {
+            let convert = ElementFactory::make("audioconvert").build()?;
+            let opus = ElementFactory::make("opusenc").build()?;
+            let mux = ElementFactory::make("oggmux").build()?;
+
+            let tagsetter = &opus
+                .dynamic_cast_ref::<TagSetter>()
+                .ok_or(anyhow!("failed to cast"))?;
+            tagsetter.merge_tags(&tags, TagMergeMode::ReplaceAll);
+
+            let elements = &[&extractor, &convert, &opus, &mux, &sink];
             pipeline.add_many(elements)?;
             Element::link_many(elements)?;
         }
@@ -280,6 +295,30 @@ mod test {
         sink.set_property("location", "/tmp/file_example_WAV_1MG.flac");
         let pipeline = Pipeline::new();
         let elements = &[&file, &wav, &encoder, &sink];
+        pipeline.add_many(elements)?;
+        Element::link_many(elements)?;
+        let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
+        let ripping = Arc::new(RwLock::new(true));
+        extract_track(pipeline, "track", &tx, ripping)?;
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    pub fn test_opus() -> Result<()> {
+        gstreamer::init()?;
+        let mut path = env::var("CARGO_MANIFEST_DIR")?;
+        path.push_str("/resources/test/file_example_WAV_1MG.wav");
+        let file = ElementFactory::make("filesrc").build()?;
+        file.set_property("location", &path);
+        let wav = ElementFactory::make("wavparse").build()?;
+        let convert = ElementFactory::make("audioconvert").build()?;
+        let encoder = ElementFactory::make("opusenc").build()?;
+        let mux = ElementFactory::make("oggmux").build()?;
+        let sink = ElementFactory::make("filesink").build()?;
+        sink.set_property("location", "/tmp/file_example_WAV_1MG.ogg");
+        let pipeline = Pipeline::new();
+        let elements = &[&file, &wav, &convert, &encoder, &mux, &sink];
         pipeline.add_many(elements)?;
         Element::link_many(elements)?;
         let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);

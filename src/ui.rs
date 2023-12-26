@@ -70,7 +70,7 @@ fn handle_config(config_button: &Button, window: &ApplicationWindow) {
             .vexpand(true)
             .build();
         let path = TextView::builder().visible(true).hexpand(true).build();
-        let options = ["mp3", "ogg", "flac"];
+        let options = ["mp3", "ogg", "flac", "opus"];
         let combo = DropDown::from_strings(&options);
         if let Ok(c) = config.read() {
             path.buffer().set_text(&c.encode_path);
@@ -79,6 +79,7 @@ fn handle_config(config_button: &Button, window: &ApplicationWindow) {
                 Encoder::MP3 => 0,
                 Encoder::OGG => 1,
                 Encoder::FLAC => 2,
+                Encoder::OPUS => 3,
             };
             combo.set_selected(selected);
         } else {
@@ -117,6 +118,7 @@ fn handle_config(config_button: &Button, window: &ApplicationWindow) {
                     0 => Encoder::MP3,
                     1 => Encoder::OGG,
                     2 => Encoder::FLAC,
+                    3 => Encoder::OPUS,
                     _ => panic!("invalid value"),
                 };
                 confy::store("ripperx4", None, &*config).ok();
