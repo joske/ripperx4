@@ -1,5 +1,6 @@
 use crate::data::{Config, Disc, Encoder, Track};
 use anyhow::{anyhow, Result};
+use async_channel::Sender;
 use glib::ControlFlow;
 use gstreamer::{
     format::Percent,
@@ -17,11 +18,7 @@ use std::{
 };
 
 /// Extract/Rip a `Disc` to MP3/OGG/FLAC
-pub fn extract(
-    disc: &Disc,
-    status: &glib::Sender<String>,
-    ripping: &Arc<RwLock<bool>>,
-) -> Result<()> {
+pub fn extract(disc: &Disc, status: &Sender<String>, ripping: &Arc<RwLock<bool>>) -> Result<()> {
     for t in &disc.tracks {
         if !*ripping.read().expect("failed to get state") {
             // ABORTED
@@ -37,12 +34,12 @@ pub fn extract(
 fn extract_track(
     pipeline: Pipeline,
     title: &str,
-    status: &glib::Sender<String>,
+    status: &Sender<String>,
     ripping: Arc<RwLock<bool>>,
 ) -> Result<()> {
     let status_message = format!("encoding {title}");
     let status_message_clone = status_message.clone();
-    status.send(status_message)?;
+    status.send_blocking(status_message).ok();
 
     let main_loop = MainLoop::new(None, false);
     let main_loop_clone = main_loop.clone();
@@ -55,7 +52,7 @@ fn extract_track(
         if !*ripping.read().expect("failed to get state") {
             // ABORTED
             pipeline.set_state(State::Null).ok();
-            status.send("aborted".to_owned()).ok();
+            status.send_blocking("aborted".to_owned()).ok();
             return ControlFlow::Break;
         }
         let zero = GenericFormattedValue::Percent(Some(Percent::from_percent(0)));
@@ -68,11 +65,11 @@ fn extract_track(
             .unwrap_or(one);
         let perc = pos.value() as f64 / dur.value() as f64 * 100.0;
         let status_message_perc = format!("{status_message_clone} : {perc:.0} %");
-        status.send(status_message_perc.clone()).ok();
+        status.send_blocking(status_message_perc.clone()).ok();
 
         if pos == dur {
             // done
-            status.send("done".to_owned()).ok();
+            status.send_blocking("done".to_owned()).ok();
             ControlFlow::Break
         } else {
             ControlFlow::Continue
@@ -226,7 +223,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
 #[cfg(test)]
 mod test {
     use anyhow::Result;
-    use gstreamer::{glib, prelude::*, Element, ElementFactory, Pipeline};
+    use gstreamer::{prelude::*, Element, ElementFactory, Pipeline};
     use serial_test::serial;
     use std::{
         env,
@@ -250,7 +247,7 @@ mod test {
         let elements = &[&file, &sink];
         pipeline.add_many(elements)?;
         Element::link_many(elements)?;
-        let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
+        let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
         let result = extract_track(pipeline, "track", &tx, ripping);
         assert!(result.is_err());
@@ -275,7 +272,7 @@ mod test {
         let elements = &[&file, &wav, &encoder, &id3, &sink];
         pipeline.add_many(elements)?;
         Element::link_many(elements)?;
-        let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
+        let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
         Ok(())
@@ -297,7 +294,7 @@ mod test {
         let elements = &[&file, &wav, &encoder, &sink];
         pipeline.add_many(elements)?;
         Element::link_many(elements)?;
-        let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
+        let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
         Ok(())
@@ -321,7 +318,7 @@ mod test {
         let elements = &[&file, &wav, &convert, &encoder, &mux, &sink];
         pipeline.add_many(elements)?;
         Element::link_many(elements)?;
-        let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
+        let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
         Ok(())
@@ -345,7 +342,7 @@ mod test {
         let elements = &[&file, &wav, &convert, &vorbis, &mux, &sink];
         pipeline.add_many(elements)?;
         Element::link_many(elements)?;
-        let (tx, _rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
+        let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
         Ok(())

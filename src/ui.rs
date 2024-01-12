@@ -3,7 +3,6 @@ use crate::{
     ripper::extract,
 };
 use discid::DiscId;
-use glib::ControlFlow;
 use gtk::{
     prelude::*, Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog,
     DropDown, Frame, Label, MessageDialog, MessageType, Orientation, Separator, Statusbar,
@@ -303,7 +302,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
             scan_button.set_sensitive(false);
             *ripping = true;
             let context_id = status.context_id("foo");
-            let (tx, rx) = gstreamer::glib::MainContext::channel(glib::source::Priority::default());
+            let (tx, rx) = async_channel::unbounded();
             let ripping_clone3 = ripping_arc.clone();
             thread::spawn(glib::clone!(@weak data => move || {
                 if let Ok(data_go) = data.clone().read() {
@@ -325,18 +324,17 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
             let scan_button_clone = scan_button;
             let go_button_clone = go_button;
             let stop_button_clone = stop_button.clone();
-            rx.attach(None, move |value| {
-                let s = value;
-                {
+            glib::spawn_future_local(async move {
+                while let Ok(value) =rx.recv().await {
+                    let s = value.clone();
                     status.pop(context_id);
                     status.push(context_id, &s);
                     if s == "done" {
                         scan_button_clone.set_sensitive(true);
                         go_button_clone.set_sensitive(true);
                         stop_button_clone.set_sensitive(false);
-                        return ControlFlow::Break;
+                        break;
                     }
-                    ControlFlow::Continue
                 }
             });
         }

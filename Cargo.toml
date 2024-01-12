@@ -7,6 +7,9 @@ description = "A CD ripper and encoder written in Rust"
 authors = ["Jos Dehaes"]
 readme = "README.md"
 
+[package.metadata.arch]
+arch = ["x86_64", "aarch64"]
+
 [dependencies]
 home = "0.5"
 glib = "0.18"
@@ -15,14 +18,15 @@ gstreamer = "0.21"
 discid = "0.5"
 confy = "0.5"
 serde = { version = "1.0", features = ["derive"] }
-ureq = "2.6.2"
+ureq = "2.9"
 minidom = "0.15"
 log = "0.4"
 simplelog = "0.12"
 anyhow = "1.0"
+async-channel = "2.1"
 
 [dev-dependencies]
-serial_test = "2.0.0"
+serial_test = "3.0.0"
 
 [build-dependencies]
 glib-build-tools = "0.18.0"
