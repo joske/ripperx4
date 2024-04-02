@@ -31,10 +31,18 @@ pub enum Encoder {
     FLAC,
     OPUS,
 }
+
+#[derive(Serialize, Deserialize)]
+pub enum Quality {
+    Low,
+    Medium,
+    High,
+}
 #[derive(Serialize, Deserialize)]
 pub struct Config {
     pub encode_path: String,
     pub encoder: Encoder,
+    pub quality: Quality,
 }
 
 impl Default for Config {
@@ -44,6 +52,7 @@ impl Default for Config {
         Config {
             encode_path: path,
             encoder: Encoder::MP3,
+            quality: Quality::Medium,
         }
     }
 }

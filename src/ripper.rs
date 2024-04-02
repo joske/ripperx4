@@ -11,7 +11,7 @@ use gstreamer::{
     ClockTime, Element, ElementFactory, Format, GenericFormattedValue, MessageView, Pipeline,
     State, TagList, TagMergeMode, TagSetter, URIType,
 };
-use log::error;
+use log::{debug, error};
 use std::{
     path::Path,
     sync::{Arc, RwLock},
@@ -37,7 +37,7 @@ fn extract_track(
     status: &Sender<String>,
     ripping: Arc<RwLock<bool>>,
 ) -> Result<()> {
-    let status_message = format!("encoding {title}");
+    let status_message = format!("Encoding {title}");
     let status_message_clone = status_message.clone();
     status.send_blocking(status_message).ok();
 
@@ -47,10 +47,14 @@ fn extract_track(
     pipeline.set_state(State::Playing)?;
     let pipeline_clone = pipeline.clone();
     let status = status.clone();
+    let status2 = status.clone();
+    let working = Arc::new(RwLock::new(true));
+    let working_clone = working.clone();
     glib::timeout_add(std::time::Duration::from_millis(1000), move || {
         let pipeline = &pipeline_clone;
         if !*ripping.read().expect("failed to get state") {
             // ABORTED
+            debug!("not ripping in timeout");
             pipeline.set_state(State::Null).ok();
             status.send_blocking("aborted".to_owned()).ok();
             return ControlFlow::Break;
@@ -71,6 +75,9 @@ fn extract_track(
             // done
             status.send_blocking("done".to_owned()).ok();
             ControlFlow::Break
+        } else if !*working.read().expect("failed to get state") {
+            debug!("not ripping in timeout bottom");
+            ControlFlow::Break
         } else {
             ControlFlow::Continue
         }
@@ -81,12 +88,22 @@ fn extract_track(
     let guard = bus.add_watch(move |_, msg| {
         let main_loop = &main_loop_clone;
         match msg.view() {
+            MessageView::StepDone(..) => {
+                debug!("StepDone");
+            }
             MessageView::Eos(..) => {
+                debug!("Eos");
+                let mut w = working_clone.write().expect("failed to get state");
+                *w = false;
                 pipeline.set_state(State::Null).ok();
                 main_loop.quit();
             }
             MessageView::Error(err) => {
+                debug!("Error");
+                status2.send_blocking("aborted".to_owned()).ok();
                 pipeline.set_state(State::Null).ok();
+                let mut w = working_clone.write().expect("failed to get state");
+                *w = false;
                 error!(
                     "Error from {:?}: {} ({:?})",
                     err.src().map(gstreamer::prelude::GstObjectExt::path_string),
@@ -101,6 +118,7 @@ fn extract_track(
     })?;
     main_loop.run();
     drop(guard);
+    debug!("done with {title}");
     Ok(())
 }
 
@@ -162,8 +180,13 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
     match config.encoder {
         Encoder::MP3 => {
             let enc = ElementFactory::make("lamemp3enc").build()?;
-            enc.set_property("bitrate", 320_i32);
-            enc.set_property("quality", 0_f32);
+            let (bitrate, quality) = match config.quality {
+                crate::data::Quality::Low => (128_i32, 9_f32),
+                crate::data::Quality::Medium => (192_i32, 5_f32),
+                crate::data::Quality::High => (320_i32, 0_f32),
+            };
+            enc.set_property("bitrate", bitrate);
+            enc.set_property("quality", quality);
 
             let tagsetter = &id3
                 .dynamic_cast_ref::<TagSetter>()
@@ -177,7 +200,12 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
         Encoder::OGG => {
             let convert = ElementFactory::make("audioconvert").build()?;
             let vorbis = ElementFactory::make("vorbisenc").build()?;
-            vorbis.set_property("quality", 0_f32);
+            let quality = match config.quality {
+                crate::data::Quality::Low => 0.2_f32,
+                crate::data::Quality::Medium => 0.5_f32,
+                crate::data::Quality::High => 0.9_f32,
+            };
+            vorbis.set_property("quality", quality);
             let mux = ElementFactory::make("oggmux").build()?;
 
             let tagsetter = &vorbis
@@ -192,6 +220,12 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
         Encoder::FLAC => {
             let enc = ElementFactory::make("flacenc").build()?;
             let elements = &[&extractor, &enc, &id3, &sink];
+            let quality = match config.quality {
+                crate::data::Quality::Low => '2',
+                crate::data::Quality::Medium => '5',
+                crate::data::Quality::High => '9',
+            };
+            enc.set_property("quality", quality);
 
             let tagsetter = &id3
                 .dynamic_cast_ref::<TagSetter>()
@@ -203,15 +237,22 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
         }
         Encoder::OPUS => {
             let convert = ElementFactory::make("audioconvert").build()?;
+            let resample = ElementFactory::make("audioresample").build()?;
             let opus = ElementFactory::make("opusenc").build()?;
             let mux = ElementFactory::make("oggmux").build()?;
 
+            let bitrate = match config.quality {
+                crate::data::Quality::Low => 64000_i32,
+                crate::data::Quality::Medium => 128000_i32,
+                crate::data::Quality::High => 256000_i32,
+            };
+            opus.set_property("bitrate", bitrate);
             let tagsetter = &opus
                 .dynamic_cast_ref::<TagSetter>()
                 .ok_or(anyhow!("failed to cast"))?;
             tagsetter.merge_tags(&tags, TagMergeMode::ReplaceAll);
 
-            let elements = &[&extractor, &convert, &opus, &mux, &sink];
+            let elements = &[&extractor, &convert, &resample, &opus, &mux, &sink];
             pipeline.add_many(elements)?;
             Element::link_many(elements)?;
         }

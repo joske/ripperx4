@@ -1,5 +1,5 @@
 use crate::{
-    data::{Config, Data, Encoder},
+    data::{Config, Data, Encoder, Quality},
     ripper::extract,
 };
 use discid::DiscId;
@@ -85,6 +85,23 @@ fn handle_config(config_button: &Button, window: &ApplicationWindow) {
             debug!("Failed to read config");
         }
         child.append(&combo);
+        // quality
+        let quality_options = ["low", "medium", "high"];
+        let quality_combo = DropDown::from_strings(&quality_options);
+        if let Ok(c) = config.read() {
+            path.buffer().set_text(&c.encode_path);
+            child.append(&path);
+            let selected = match c.quality {
+                Quality::Low => 0,
+                Quality::Medium => 1,
+                Quality::High => 2,
+            };
+            quality_combo.set_selected(selected);
+        } else {
+            debug!("Failed to read config");
+        }
+        child.append(&quality_combo);
+
         let separator = Separator::builder().vexpand(true).build();
         child.append(&separator);
         let button_box = Box::builder()
@@ -118,6 +135,13 @@ fn handle_config(config_button: &Button, window: &ApplicationWindow) {
                     1 => Encoder::OGG,
                     2 => Encoder::FLAC,
                     3 => Encoder::OPUS,
+                    _ => panic!("invalid value"),
+                };
+                let c = quality_combo.selected();
+                config.quality = match c {
+                    0 => Quality::Low,
+                    1 => Quality::Medium,
+                    2 => Quality::High,
                     _ => panic!("invalid value"),
                 };
                 confy::store("ripperx4", None, &*config).ok();
@@ -327,8 +351,14 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
             glib::spawn_future_local(async move {
                 while let Ok(value) =rx.recv().await {
                     let s = value.clone();
-                    status.pop(context_id);
+                    status.remove_all(context_id);
                     status.push(context_id, &s);
+                    if s == "aborted" {
+                        scan_button_clone.set_sensitive(true);
+                        go_button_clone.set_sensitive(true);
+                        stop_button_clone.set_sensitive(false);
+                        break;
+                    }
                     if s == "done" {
                         scan_button_clone.set_sensitive(true);
                         go_button_clone.set_sensitive(true);
