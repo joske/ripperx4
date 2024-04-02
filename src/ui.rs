@@ -334,12 +334,12 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
                         match extract(disc, &tx, &ripping_clone3) {
                             Ok(_) => {
                                 debug!("done");
-                                let _ignore = tx.send("done".to_owned());
+                                tx.send_blocking("done".to_owned()).ok();
                             }
                             Err(e) => {
                                 let msg = format!("Error: {e}");
                                 debug!("{msg}");
-                                let _ignore = tx.send(msg);
+                                tx.send_blocking("aborted".to_owned()).ok();
                             }
                         }
                     }
