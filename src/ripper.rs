@@ -180,12 +180,11 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
     match config.encoder {
         Encoder::MP3 => {
             let enc = ElementFactory::make("lamemp3enc").build()?;
-            let (bitrate, quality) = match config.quality {
-                crate::data::Quality::Low => (128_i32, 9_f32),
-                crate::data::Quality::Medium => (192_i32, 5_f32),
-                crate::data::Quality::High => (320_i32, 0_f32),
+            let quality = match config.quality {
+                crate::data::Quality::Low => 9_f32,
+                crate::data::Quality::Medium => 5_f32,
+                crate::data::Quality::High => 0_f32,
             };
-            enc.set_property("bitrate", bitrate);
             enc.set_property("quality", quality);
 
             let tagsetter = &id3
@@ -221,11 +220,11 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
             let enc = ElementFactory::make("flacenc").build()?;
             let elements = &[&extractor, &enc, &id3, &sink];
             let quality = match config.quality {
-                crate::data::Quality::Low => '2',
-                crate::data::Quality::Medium => '5',
-                crate::data::Quality::High => '9',
+                crate::data::Quality::Low => "2",
+                crate::data::Quality::Medium => "5",
+                crate::data::Quality::High => "8",
             };
-            enc.set_property("quality", quality);
+            enc.set_property_from_str("quality", quality);
 
             let tagsetter = &id3
                 .dynamic_cast_ref::<TagSetter>()
