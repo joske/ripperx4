@@ -38,25 +38,70 @@ fn extract_track(
     ripping: Arc<RwLock<bool>>,
 ) -> Result<()> {
     let status_message = format!("Encoding {title}");
-    let status_message_clone = status_message.clone();
-    status.send_blocking(status_message).ok();
+    status.send_blocking(status_message.clone()).ok();
 
     let main_loop = MainLoop::new(None, false);
     let main_loop_clone = main_loop.clone();
 
     pipeline.set_state(State::Playing)?;
-    let pipeline_clone = pipeline.clone();
     let status = status.clone();
-    let status2 = status.clone();
     let working = Arc::new(RwLock::new(true));
-    let working_clone = working.clone();
+    handle_progress(
+        status_message,
+        pipeline.clone(),
+        ripping,
+        status.clone(),
+        working.clone(),
+    );
+
+    let bus = pipeline.bus().ok_or(anyhow!("no bus".to_owned()))?;
+
+    let guard = bus.add_watch(move |_, msg| {
+        let main_loop = &main_loop_clone;
+        match msg.view() {
+            MessageView::Eos(..) => {
+                debug!("Eos");
+                let mut w = working.write().expect("failed to get state");
+                *w = false;
+                pipeline.set_state(State::Null).ok();
+                main_loop.quit();
+            }
+            MessageView::Error(err) => {
+                debug!("Error");
+                status.send_blocking("aborted".to_owned()).ok();
+                let mut w = working.write().expect("failed to get state");
+                *w = false;
+                error!(
+                    "Error from {:?}: {} ({:?})",
+                    err.src().map(gstreamer::prelude::GstObjectExt::path_string),
+                    err.error(),
+                    err.debug()
+                );
+                pipeline.set_state(State::Null).ok();
+                main_loop.quit();
+            }
+            _ => (),
+        }
+        ControlFlow::Continue
+    })?;
+    main_loop.run();
+    drop(guard);
+    debug!("done with {title}");
+    Ok(())
+}
+
+fn handle_progress(
+    status_message: String,
+    pipeline_clone: Pipeline,
+    ripping: Arc<RwLock<bool>>,
+    status: Sender<String>,
+    working: Arc<RwLock<bool>>,
+) {
     glib::timeout_add(std::time::Duration::from_millis(1000), move || {
         let pipeline = &pipeline_clone;
-        if !*ripping.read().expect("failed to get state") {
-            // ABORTED
-            debug!("not ripping in timeout");
-            pipeline.set_state(State::Null).ok();
-            status.send_blocking("aborted".to_owned()).ok();
+        if !*ripping.read().expect("failed to get state")
+            || !*working.read().expect("failed to get state")
+        {
             return ControlFlow::Break;
         }
         let zero = GenericFormattedValue::Percent(Some(Percent::from_percent(0)));
@@ -68,58 +113,11 @@ fn extract_track(
             .query_duration_generic(Format::Percent)
             .unwrap_or(one);
         let perc = pos.value() as f64 / dur.value() as f64 * 100.0;
-        let status_message_perc = format!("{status_message_clone} : {perc:.0} %");
+        let status_message_perc = format!("{status_message} : {perc:.0} %");
         status.send_blocking(status_message_perc.clone()).ok();
 
-        if pos == dur {
-            // done
-            status.send_blocking("done".to_owned()).ok();
-            ControlFlow::Break
-        } else if !*working.read().expect("failed to get state") {
-            debug!("not ripping in timeout bottom");
-            ControlFlow::Break
-        } else {
-            ControlFlow::Continue
-        }
-    });
-
-    let bus = pipeline.bus().ok_or(anyhow!("no bus".to_owned()))?;
-
-    let guard = bus.add_watch(move |_, msg| {
-        let main_loop = &main_loop_clone;
-        match msg.view() {
-            MessageView::StepDone(..) => {
-                debug!("StepDone");
-            }
-            MessageView::Eos(..) => {
-                debug!("Eos");
-                let mut w = working_clone.write().expect("failed to get state");
-                *w = false;
-                pipeline.set_state(State::Null).ok();
-                main_loop.quit();
-            }
-            MessageView::Error(err) => {
-                debug!("Error");
-                status2.send_blocking("aborted".to_owned()).ok();
-                pipeline.set_state(State::Null).ok();
-                let mut w = working_clone.write().expect("failed to get state");
-                *w = false;
-                error!(
-                    "Error from {:?}: {} ({:?})",
-                    err.src().map(gstreamer::prelude::GstObjectExt::path_string),
-                    err.error(),
-                    err.debug()
-                );
-                main_loop.quit();
-            }
-            _ => (),
-        }
         ControlFlow::Continue
-    })?;
-    main_loop.run();
-    drop(guard);
-    debug!("done with {title}");
-    Ok(())
+    });
 }
 
 /// Create a gstreamer pipeline for extracting/encoding the `Track`
