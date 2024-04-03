@@ -3,10 +3,11 @@ use crate::{
     ripper::extract,
 };
 use discid::DiscId;
+use glib::Type;
 use gtk::{
-    prelude::*, Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog,
-    DropDown, Frame, Label, MessageDialog, MessageType, Orientation, Separator, Statusbar,
-    TextBuffer, TextView,
+    gdk::RGBA, prelude::*, Align, Application, ApplicationWindow, Box, Builder, Button,
+    ButtonsType, Dialog, DropDown, Frame, ListStore, MessageDialog, MessageType, Orientation,
+    Separator, Statusbar, TextView, TreeView,
 };
 use log::debug;
 use std::{
@@ -210,7 +211,9 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let year_text: TextView = builder.object("year").expect("Failed to get widget");
     let genre_text: TextView = builder.object("genre").expect("Failed to get widget");
     let go_button: Button = builder.object("go_button").expect("Failed to get widget");
-    let scroll: Box = builder.object("scroll").expect("Failed to get widget");
+    let tree: TreeView = builder
+        .object("track_listview")
+        .expect("Failed to get widget");
     let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
     scan_button.connect_clicked(move |_| {
         debug!("Scan");
@@ -230,8 +233,25 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
 
         debug!("Scanned: {discid:?}");
         debug!("id={}", discid.id());
+        let store = ListStore::new(&[Type::BOOL, Type::U8, Type::STRING, Type::STRING]);
+        tree.set_model(Some(&store));
+        let renderer = gtk::CellRendererText::new();
+        renderer.set_property("editable", true);
+        renderer.set_property("foreground-rgba", RGBA::BLACK);
+        let bool_renderer = gtk::CellRendererToggle::new();
+        bool_renderer.set_property("activatable", true);
+        let column =
+            gtk::TreeViewColumn::with_attributes("Encode", &bool_renderer, &[("encode", 0)]);
+        tree.append_column(&column);
+        let column = gtk::TreeViewColumn::with_attributes("Track", &renderer, &[("track", 1)]);
+        tree.append_column(&column);
+        let column = gtk::TreeViewColumn::with_attributes("Title", &renderer, &[("title", 2)]);
+        tree.append_column(&column);
+        let column = gtk::TreeViewColumn::with_attributes("Artist", &renderer, &[("artist", 2)]);
+        tree.append_column(&column);
         if let Ok(disc) = crate::musicbrainz::lookup(&discid.id()) {
             debug!("disc:{}", disc.title);
+            // store.clear();
             title_text.buffer().set_text(&disc.title);
             artist_text.buffer().set_text(&disc.artist);
             if let Some(year) = disc.year {
@@ -245,49 +265,22 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
                 .expect("Failed to aquire write lock on data")
                 .disc = Some(disc);
             // here we know how many tracks there are
-            let tracks = usize::try_from(discid.last_track_num() - discid.first_track_num() + 1).expect("Failed to convert track number");
-            for i in 0..tracks  {
-                let hbox = Box::builder()
-                    .orientation(Orientation::Horizontal)
-                    .vexpand(false)
-                    .hexpand(true)
-                    .spacing(50)
-                    .build();
-                let label_text = format!("Track {}", i + 1);
-                let label = Label::builder().label(&label_text).build();
-                hbox.append(&label);
-
+            let tracks = usize::try_from(discid.last_track_num() - discid.first_track_num() + 1)
+                .expect("Failed to convert track number");
+            for i in 0..tracks {
+                let iter = store.append();
                 if let Ok(r) = data.read() {
                     if let Some(d) = r.disc.as_ref() {
                         let title = &d.tracks[i].title;
-                        let buffer = TextBuffer::builder().text(title).build();
-                        let name = format!("{i}");
-                        let tb = TextView::builder()
-                            .name(&name)
-                            .buffer(&buffer)
-                            .hexpand(true)
-                            .build();
-                        let data_changed = data.clone();
-                        buffer.connect_changed(glib::clone!(@weak buffer => move |_| {
-                            if let Ok(mut r) = data_changed.write() {
-                                if let Some(d) = r.disc.as_mut() {
-                                    let tracks = &mut d.tracks;
-                                    let track = &mut tracks[i];
-                                    let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
-                                    debug!("{}", &text);
-                                    track.title = text.to_string();
-                                    debug!("{}", &track.title);
-                                }
-                            }
-                        }));
-                        hbox.append(&tb);
-                        tb.show();
-                        scroll.append(&hbox);
-                        hbox.show();
+                        let artist = &d.tracks[i].artist;
+                        debug!("{}: {} - {}", i, title, artist);
+                        store.set(
+                            &iter,
+                            &[(0, &true), (1, &(i as u8)), (2, &title), (3, &artist)],
+                        );
                     }
                 }
             }
-            scroll.show();
         } else {
             show_message("Disc not found!", MessageType::Error, &window);
         }
