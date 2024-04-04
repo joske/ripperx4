@@ -16,6 +16,7 @@ pub struct Track {
     pub artist: String,
     pub duration: u64,
     pub composer: Option<String>,
+    pub rip: bool,
 }
 
 #[derive(Default, Debug)]

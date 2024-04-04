@@ -25,7 +25,9 @@ pub fn extract(disc: &Disc, status: &Sender<String>, ripping: &Arc<RwLock<bool>>
             break;
         }
         let pipeline = create_pipeline(t, disc)?;
-        extract_track(pipeline, &t.title, status, ripping.clone())?;
+        if t.rip {
+            extract_track(pipeline, &t.title, status, ripping.clone())?;
+        }
     }
     Ok(())
 }

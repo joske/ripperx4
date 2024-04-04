@@ -71,6 +71,7 @@ fn parse_metadata(xml: &str) -> Result<Disc> {
             }
             dtrack.artist = get_artist(recording).unwrap_or_default();
         }
+        dtrack.rip = true;
         disc.tracks.push(dtrack);
     }
     Ok(disc)
