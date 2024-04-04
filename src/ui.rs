@@ -1,8 +1,8 @@
 use crate::{
     data::{Config, Data, Encoder, Quality},
     ripper::extract,
+    util::{lookup_disc, scan_disc},
 };
-use discid::DiscId;
 use glib::Type;
 use gtk::{
     prelude::*, Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog,
@@ -292,23 +292,10 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
     scan_button.connect_clicked(move |_| {
         debug!("Scan");
-        let result = DiscId::read(Some(&DiscId::default_device()));
-        let discid = if let Ok(d) = result {
-            d
-        } else {
-            // show_message("Disc not found!", MessageType::Error, &window);
-            // return;
-            // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
-            let offsets = [
-                298_948, 183, 26155, 44233, 64778, 80595, 117_410, 144_120, 159_913, 178_520,
-                204_803, 258_763, 277_218,
-            ];
-            DiscId::put(1, &offsets).unwrap() // this is for testing only so this unwrap is ok
-        };
-
-        debug!("Scanned: {discid:?}");
-        debug!("id={}", discid.id());
-        if let Ok(disc) = crate::musicbrainz::lookup(&discid.id()) {
+        if let Ok(discid) = scan_disc() {
+            debug!("Scanned: {discid:?}");
+            debug!("id={}", discid.id());
+            let disc = lookup_disc(discid);
             debug!("disc:{}", disc.title);
             // store.clear();
             title_text.buffer().set_text(&disc.title);
@@ -319,13 +306,12 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
             if let Some(genre) = &disc.genre {
                 genre_text.buffer().set_text(&genre.clone());
             }
+            let tracks = disc.tracks.len();
             // panic if we can't get a write lock
             data.write()
                 .expect("Failed to aquire write lock on data")
                 .disc = Some(disc);
             // here we know how many tracks there are
-            let tracks = usize::try_from(discid.last_track_num() - discid.first_track_num() + 1)
-                .expect("Failed to convert track number");
             for i in 0..tracks {
                 let iter = store.append();
                 if let Ok(r) = data.read() {
@@ -341,10 +327,10 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
                     }
                 }
             }
+            go_button.set_sensitive(true);
         } else {
-            show_message("Disc not found!", MessageType::Error, &window);
+            show_message("Failed to scan disc", MessageType::Error, &window);
         }
-        go_button.set_sensitive(true);
     });
 }
 

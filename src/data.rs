@@ -9,6 +9,29 @@ pub struct Disc {
     pub tracks: Vec<Track>,
 }
 
+impl Disc {
+    pub(crate) fn with_tracks(num: i32) -> Disc {
+        let mut d = Disc {
+            title: "Unknown".to_string(),
+            artist: "Unknown".to_string(),
+            year: None,
+            genre: None,
+            tracks: Vec::with_capacity(num as usize),
+        };
+        for i in 1..=num {
+            d.tracks.push(Track {
+                number: i as u32,
+                title: "Unknown".to_string(),
+                artist: "Unknown".to_string(),
+                duration: 0,
+                composer: None,
+                rip: false,
+            });
+        }
+        d
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct Track {
     pub number: u32,
@@ -44,6 +67,7 @@ pub struct Config {
     pub encode_path: String,
     pub encoder: Encoder,
     pub quality: Quality,
+    pub fake_cdrom: bool,
 }
 
 impl Default for Config {
@@ -54,6 +78,7 @@ impl Default for Config {
             encode_path: path,
             encoder: Encoder::MP3,
             quality: Quality::Medium,
+            fake_cdrom: false,
         }
     }
 }

@@ -6,6 +6,7 @@ mod data;
 mod musicbrainz;
 mod ripper;
 mod ui;
+mod util;
 
 pub fn main() {
     simplelog::TermLogger::init(
