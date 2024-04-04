@@ -35,6 +35,8 @@ It is now almost feature complete, see below:
 
 ## Building
 
+Install gtk 4, gstreamer, libdiscid
+
 `cargo build`
 
 Tip: builds for x86 macOS are available on every build in Actions/Artifacts.
