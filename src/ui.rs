@@ -222,10 +222,21 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let t = tree.clone();
     let m = t.model().unwrap();
     let s = store.clone();
+    let d_clone = data.clone();
     bool_renderer.connect_toggled(move |_, path| {
         let iter = m.iter(&path).unwrap();
         let old = s.get_value(&iter, 0).get::<bool>().unwrap();
-        s.set_value(&iter, 0, &(!old).to_value());
+        let new = !old;
+        s.set_value(&iter, 0, &new.to_value());
+        if let Some(d) = d_clone
+            .write()
+            .expect("Failed to aquire write lock on data")
+            .disc
+            .as_mut()
+        {
+            let num = m.get_value(&iter, 1).get::<u8>().unwrap();
+            d.tracks[num as usize - 1].rip = new;
+        }
     });
     let column = gtk::TreeViewColumn::with_attributes("Encode", &bool_renderer, &[("active", 0)]);
     tree.append_column(&column);
@@ -239,9 +250,19 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let t = tree.clone();
     let m = t.model().unwrap();
     let s = store.clone();
+    let d_clone = data.clone();
     renderer.connect_edited(move |_, path, new_text| {
         let iter = m.iter(&path).unwrap();
         s.set_value(&iter, 2, &new_text.to_value());
+        if let Some(d) = d_clone
+            .write()
+            .expect("Failed to aquire write lock on data")
+            .disc
+            .as_mut()
+        {
+            let num = m.get_value(&iter, 1).get::<u8>().unwrap();
+            d.tracks[num as usize - 1].title = new_text.to_string();
+        };
     });
     let column = gtk::TreeViewColumn::with_attributes("Title", &renderer, &[("text", 2)]);
     tree.append_column(&column);
@@ -251,9 +272,19 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let t = tree.clone();
     let m = t.model().unwrap();
     let s = store.clone();
+    let d_clone = data.clone();
     renderer.connect_edited(move |_, path, new_text| {
         let iter = m.iter(&path).unwrap();
         s.set_value(&iter, 3, &new_text.to_value());
+        if let Some(d) = d_clone
+            .write()
+            .expect("Failed to aquire write lock on data")
+            .disc
+            .as_mut()
+        {
+            let num = m.get_value(&iter, 1).get::<u8>().unwrap();
+            d.tracks[num as usize - 1].artist = new_text.to_string();
+        };
     });
     let column = gtk::TreeViewColumn::with_attributes("Artist", &renderer, &[("text", 3)]);
     tree.append_column(&column);
