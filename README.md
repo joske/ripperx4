@@ -16,13 +16,29 @@ to query the disc on musicbrainz service (previous versions used gnudb, but
 that service seems down now, so I bit the bullet and implemented a basic query
 to musicbrainz vast info).
 
-Right now, it starts up, can scan the CD drive, and rip/encode the tracks to
-MP3, OGG, flac, or OPUS. There is only minimal error handling, so don't expect
-much. But when nothing goes wrong, it actually kinda sorta works!
+It is now almost feature complete, see below:
+
+## What works
+
+- can scan CDROM drive
+- query musicbrainz
+- you can edit the data
+- adds tags to the files
+- you can select which tracks to rip
+- supports MP3, OGG, FLAC and OPUS
+- you can set quality options
+
+## What is not supported (yet)
+
+- no support for multiple matches from musicbrainz (just takes the first match)
+- composer field
 
 ## Building
 
 `cargo build`
+
+Tip: builds for x86 macOS are available on every build in Actions/Artifacts.
+(For some reason, building for linux on github actions runs into trouble with deps - seems to be an issue with GitHub's ubuntu image)
 
 ## Running
 
