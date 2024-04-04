@@ -211,9 +211,32 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let year_text: TextView = builder.object("year").expect("Failed to get widget");
     let genre_text: TextView = builder.object("genre").expect("Failed to get widget");
     let go_button: Button = builder.object("go_button").expect("Failed to get widget");
+    // build treeview
     let tree: TreeView = builder
         .object("track_listview")
         .expect("Failed to get widget");
+    let store = ListStore::new(&[Type::BOOL, Type::U8, Type::STRING, Type::STRING]);
+    tree.set_model(Some(&store));
+    let bool_renderer = gtk::CellRendererToggle::new();
+    bool_renderer.set_property("activatable", true);
+    let column = gtk::TreeViewColumn::with_attributes("Encode", &bool_renderer, &[("active", 0)]);
+    tree.append_column(&column);
+
+    let renderer = gtk::CellRendererText::new();
+    renderer.set_property("editable", true);
+    let column = gtk::TreeViewColumn::with_attributes("Track", &renderer, &[("text", 1)]);
+    tree.append_column(&column);
+
+    let renderer = gtk::CellRendererText::new();
+    renderer.set_property("editable", true);
+    let column = gtk::TreeViewColumn::with_attributes("Title", &renderer, &[("text", 2)]);
+    tree.append_column(&column);
+
+    let renderer = gtk::CellRendererText::new();
+    renderer.set_property("editable", true);
+    let column = gtk::TreeViewColumn::with_attributes("Artist", &renderer, &[("text", 2)]);
+    tree.append_column(&column);
+
     let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
     scan_button.connect_clicked(move |_| {
         debug!("Scan");
@@ -233,22 +256,6 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
 
         debug!("Scanned: {discid:?}");
         debug!("id={}", discid.id());
-        let store = ListStore::new(&[Type::BOOL, Type::U8, Type::STRING, Type::STRING]);
-        tree.set_model(Some(&store));
-        let renderer = gtk::CellRendererText::new();
-        renderer.set_property("editable", true);
-        renderer.set_property("foreground-rgba", RGBA::BLACK);
-        let bool_renderer = gtk::CellRendererToggle::new();
-        bool_renderer.set_property("activatable", true);
-        let column =
-            gtk::TreeViewColumn::with_attributes("Encode", &bool_renderer, &[("encode", 0)]);
-        tree.append_column(&column);
-        let column = gtk::TreeViewColumn::with_attributes("Track", &renderer, &[("track", 1)]);
-        tree.append_column(&column);
-        let column = gtk::TreeViewColumn::with_attributes("Title", &renderer, &[("title", 2)]);
-        tree.append_column(&column);
-        let column = gtk::TreeViewColumn::with_attributes("Artist", &renderer, &[("artist", 2)]);
-        tree.append_column(&column);
         if let Ok(disc) = crate::musicbrainz::lookup(&discid.id()) {
             debug!("disc:{}", disc.title);
             // store.clear();
@@ -271,8 +278,8 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
                 let iter = store.append();
                 if let Ok(r) = data.read() {
                     if let Some(d) = r.disc.as_ref() {
-                        let title = &d.tracks[i].title;
-                        let artist = &d.tracks[i].artist;
+                        let title = &d.tracks[i].title.clone();
+                        let artist = &d.tracks[i].artist.clone();
                         debug!("{}: {} - {}", i, title, artist);
                         store.set(
                             &iter,
