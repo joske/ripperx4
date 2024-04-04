@@ -5,9 +5,9 @@ use crate::{
 use discid::DiscId;
 use glib::Type;
 use gtk::{
-    gdk::RGBA, prelude::*, Align, Application, ApplicationWindow, Box, Builder, Button,
-    ButtonsType, Dialog, DropDown, Frame, ListStore, MessageDialog, MessageType, Orientation,
-    Separator, Statusbar, TextView, TreeView,
+    prelude::*, Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog,
+    DropDown, Frame, ListStore, MessageDialog, MessageType, Orientation, Separator, Statusbar,
+    TextView, TreeView,
 };
 use log::debug;
 use std::{
@@ -219,22 +219,43 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     tree.set_model(Some(&store));
     let bool_renderer = gtk::CellRendererToggle::new();
     bool_renderer.set_property("activatable", true);
+    let t = tree.clone();
+    let m = t.model().unwrap();
+    let s = store.clone();
+    bool_renderer.connect_toggled(move |_, path| {
+        let iter = m.iter(&path).unwrap();
+        let old = s.get_value(&iter, 0).get::<bool>().unwrap();
+        s.set_value(&iter, 0, &(!old).to_value());
+    });
     let column = gtk::TreeViewColumn::with_attributes("Encode", &bool_renderer, &[("active", 0)]);
     tree.append_column(&column);
 
     let renderer = gtk::CellRendererText::new();
-    renderer.set_property("editable", true);
     let column = gtk::TreeViewColumn::with_attributes("Track", &renderer, &[("text", 1)]);
     tree.append_column(&column);
 
     let renderer = gtk::CellRendererText::new();
     renderer.set_property("editable", true);
+    let t = tree.clone();
+    let m = t.model().unwrap();
+    let s = store.clone();
+    renderer.connect_edited(move |_, path, new_text| {
+        let iter = m.iter(&path).unwrap();
+        s.set_value(&iter, 2, &new_text.to_value());
+    });
     let column = gtk::TreeViewColumn::with_attributes("Title", &renderer, &[("text", 2)]);
     tree.append_column(&column);
 
     let renderer = gtk::CellRendererText::new();
     renderer.set_property("editable", true);
-    let column = gtk::TreeViewColumn::with_attributes("Artist", &renderer, &[("text", 2)]);
+    let t = tree.clone();
+    let m = t.model().unwrap();
+    let s = store.clone();
+    renderer.connect_edited(move |_, path, new_text| {
+        let iter = m.iter(&path).unwrap();
+        s.set_value(&iter, 3, &new_text.to_value());
+    });
+    let column = gtk::TreeViewColumn::with_attributes("Artist", &renderer, &[("text", 3)]);
     tree.append_column(&column);
 
     let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
@@ -278,12 +299,13 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
                 let iter = store.append();
                 if let Ok(r) = data.read() {
                     if let Some(d) = r.disc.as_ref() {
+                        let num = d.tracks[i].number;
                         let title = &d.tracks[i].title.clone();
                         let artist = &d.tracks[i].artist.clone();
-                        debug!("{}: {} - {}", i, title, artist);
+                        debug!("{}: {} - {}", num, title, artist);
                         store.set(
                             &iter,
-                            &[(0, &true), (1, &(i as u8)), (2, &title), (3, &artist)],
+                            &[(0, &true), (1, &(num as u8)), (2, &title), (3, &artist)],
                         );
                     }
                 }
