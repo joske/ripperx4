@@ -267,6 +267,8 @@ mod test {
     use serial_test::serial;
     use std::{
         env,
+        fs::remove_file,
+        path::Path,
         sync::{Arc, RwLock},
     };
 
@@ -307,7 +309,8 @@ mod test {
         let encoder = ElementFactory::make("lamemp3enc").build()?;
         let id3 = ElementFactory::make("id3v2mux").build()?;
         let sink = ElementFactory::make("filesink").build()?;
-        sink.set_property("location", "/tmp/file_example_WAV_1MG.mp3");
+        let dest = "/tmp/file_example_WAV_1MG.mp3";
+        sink.set_property("location", dest);
         let pipeline = Pipeline::new();
         let elements = &[&file, &wav, &encoder, &id3, &sink];
         pipeline.add_many(elements)?;
@@ -315,6 +318,9 @@ mod test {
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
+        assert!(Path::new(dest).exists());
+        assert!(Path::new(dest).is_file());
+        remove_file(dest)?;
         Ok(())
     }
 
@@ -329,7 +335,8 @@ mod test {
         let wav = ElementFactory::make("wavparse").build()?;
         let encoder = ElementFactory::make("flacenc").build()?;
         let sink = ElementFactory::make("filesink").build()?;
-        sink.set_property("location", "/tmp/file_example_WAV_1MG.flac");
+        let dest = "/tmp/file_example_WAV_1MG.flac";
+        sink.set_property("location", dest);
         let pipeline = Pipeline::new();
         let elements = &[&file, &wav, &encoder, &sink];
         pipeline.add_many(elements)?;
@@ -337,6 +344,9 @@ mod test {
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
+        assert!(Path::new(dest).exists());
+        assert!(Path::new(dest).is_file());
+        remove_file(dest)?;
         Ok(())
     }
 
@@ -353,7 +363,8 @@ mod test {
         let encoder = ElementFactory::make("opusenc").build()?;
         let mux = ElementFactory::make("oggmux").build()?;
         let sink = ElementFactory::make("filesink").build()?;
-        sink.set_property("location", "/tmp/file_example_WAV_1MG.ogg");
+        let dest = "/tmp/file_example_WAV_1MG.ogg";
+        sink.set_property("location", dest);
         let pipeline = Pipeline::new();
         let elements = &[&file, &wav, &convert, &encoder, &mux, &sink];
         pipeline.add_many(elements)?;
@@ -361,6 +372,9 @@ mod test {
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
+        assert!(Path::new(dest).exists());
+        assert!(Path::new(dest).is_file());
+        remove_file(dest)?;
         Ok(())
     }
 
@@ -377,7 +391,8 @@ mod test {
         let vorbis = ElementFactory::make("vorbisenc").build()?;
         let mux = ElementFactory::make("oggmux").build()?;
         let sink = ElementFactory::make("filesink").build()?;
-        sink.set_property("location", "/tmp/file_example_WAV_1MG.ogg");
+        let dest = "/tmp/file_example_WAV_1MG.ogg";
+        sink.set_property("location", dest);
         let pipeline = Pipeline::new();
         let elements = &[&file, &wav, &convert, &vorbis, &mux, &sink];
         pipeline.add_many(elements)?;
@@ -385,6 +400,9 @@ mod test {
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
         extract_track(pipeline, "track", &tx, ripping)?;
+        assert!(Path::new(dest).exists());
+        assert!(Path::new(dest).is_file());
+        remove_file(dest)?;
         Ok(())
     }
 }
