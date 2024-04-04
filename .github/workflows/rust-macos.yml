@@ -1,4 +1,4 @@
-name: Rust
+name: Rust-macOS
 on: [push, pull_request]
 env:
   CARGO_TERM_COLOR: always
@@ -8,16 +8,16 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
       - name: Install glib/gtk dev
         run: brew install gtk4 gstreamer libdiscid sccache
       - name: Build
         run: cargo build
       - name: Run tests
         run: cargo test
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ripperx4
           path: target/debug/ripperx4
