@@ -220,12 +220,15 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let bool_renderer = gtk::CellRendererToggle::new();
     bool_renderer.set_property("activatable", true);
     let t = tree.clone();
-    let m = t.model().unwrap();
+    let m = t.model().expect("Failed to get model");
     let s = store.clone();
     let d_clone = data.clone();
     bool_renderer.connect_toggled(move |_, path| {
-        let iter = m.iter(&path).unwrap();
-        let old = s.get_value(&iter, 0).get::<bool>().unwrap();
+        let iter = m.iter(&path).expect("Failed to get iter");
+        let old = s
+            .get_value(&iter, 0)
+            .get::<bool>()
+            .expect("Failed to get value");
         let new = !old;
         s.set_value(&iter, 0, &new.to_value());
         if let Some(d) = d_clone
@@ -234,7 +237,10 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
             .disc
             .as_mut()
         {
-            let num = m.get_value(&iter, 1).get::<u8>().unwrap();
+            let num = m
+                .get_value(&iter, 1)
+                .get::<u8>()
+                .expect("Failed to get value");
             d.tracks[num as usize - 1].rip = new;
         }
     });
@@ -248,11 +254,11 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let renderer = gtk::CellRendererText::new();
     renderer.set_property("editable", true);
     let t = tree.clone();
-    let m = t.model().unwrap();
+    let m = t.model().expect("Failed to get model");
     let s = store.clone();
     let d_clone = data.clone();
     renderer.connect_edited(move |_, path, new_text| {
-        let iter = m.iter(&path).unwrap();
+        let iter = m.iter(&path).expect("Failed to get iter");
         s.set_value(&iter, 2, &new_text.to_value());
         if let Some(d) = d_clone
             .write()
@@ -260,7 +266,10 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
             .disc
             .as_mut()
         {
-            let num = m.get_value(&iter, 1).get::<u8>().unwrap();
+            let num = m
+                .get_value(&iter, 1)
+                .get::<u8>()
+                .expect("Failed to get value");
             d.tracks[num as usize - 1].title = new_text.to_string();
         };
     });
@@ -270,11 +279,11 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let renderer = gtk::CellRendererText::new();
     renderer.set_property("editable", true);
     let t = tree.clone();
-    let m = t.model().unwrap();
+    let m = t.model().expect("Failed to get model");
     let s = store.clone();
     let d_clone = data.clone();
     renderer.connect_edited(move |_, path, new_text| {
-        let iter = m.iter(&path).unwrap();
+        let iter = m.iter(&path).expect("Failed to get iter");
         s.set_value(&iter, 3, &new_text.to_value());
         if let Some(d) = d_clone
             .write()
@@ -282,7 +291,10 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
             .disc
             .as_mut()
         {
-            let num = m.get_value(&iter, 1).get::<u8>().unwrap();
+            let num = m
+                .get_value(&iter, 1)
+                .get::<u8>()
+                .expect("Failed to get value");
             d.tracks[num as usize - 1].artist = new_text.to_string();
         };
     });

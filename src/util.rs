@@ -61,5 +61,7 @@ mod test {
         assert_eq!(disc.artist, "Unknown");
         assert_eq!(disc.tracks[0].title, "Unknown");
         assert_eq!(disc.tracks[0].artist, "Unknown");
+        assert_eq!(disc.tracks[1].title, "Unknown");
+        assert_eq!(disc.tracks[1].artist, "Unknown");
     }
 }
