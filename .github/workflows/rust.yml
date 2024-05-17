@@ -22,7 +22,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: +nigthly --all -- --check
+          args: --all -- --check
       - uses: actions-rs/clippy-check@v1
         with:
           args: --all-features
@@ -51,7 +51,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: +nigthly --all -- --check
+          args: --all -- --check
       - uses: actions-rs/clippy-check@v1
         with:
           args: --all-features
