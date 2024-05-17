@@ -13,6 +13,10 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install glib/gtk dev
         run: sudo apt-get install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev gstreamer1.0-plugins-good libdiscid-dev
+      - name: Build
+        run: cargo build --release
+      - name: Run tests
+        run: cargo test
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -25,10 +29,9 @@ jobs:
           args: --all -- --check
       - name: check clippy
         uses: actions-rs/clippy-check@v1
-      - name: Build
-        run: cargo build --release
-      - name: Run tests
-        run: cargo test
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
       - uses: actions/upload-artifact@v3
         with:
           name: ripperx4-linux
@@ -41,6 +44,10 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install glib/gtk dev
         run: brew install gtk4 gstreamer libdiscid sccache
+      - name: Build
+        run: cargo build --release
+      - name: Run tests
+        run: cargo test
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -53,10 +60,9 @@ jobs:
           args: --all -- --check
       - name: check clippy
         uses: actions-rs/clippy-check@v1
-      - name: Build
-        run: cargo build --release
-      - name: Run tests
-        run: cargo test
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
       - uses: actions/upload-artifact@v3
         with:
           name: ripperx4-macos
