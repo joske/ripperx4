@@ -13,11 +13,16 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install glib/gtk dev
         run: sudo apt-get install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev gstreamer1.0-plugins-good libdiscid-dev
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy
+          override: true
       - name: check cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -- --check
+          args: +nigthly --all -- --check
       - uses: actions-rs/clippy-check@v1
         with:
           args: --all-features
@@ -37,11 +42,16 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install glib/gtk dev
         run: brew install gtk4 gstreamer libdiscid sccache
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy
+          override: true
       - name: check cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -- --check
+          args: +nigthly --all -- --check
       - uses: actions-rs/clippy-check@v1
         with:
           args: --all-features
