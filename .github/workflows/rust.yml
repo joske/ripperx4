@@ -13,13 +13,21 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install glib/gtk dev
         run: sudo apt-get install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev gstreamer1.0-plugins-good libdiscid-dev
+      - name: check cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - uses: actions-rs/clippy-check@v1
+        with:
+          args: --all-features
       - name: Build
         run: cargo build --release
       - name: Run tests
         run: cargo test
       - uses: actions/upload-artifact@v3
         with:
-          name: ripperx4
+          name: ripperx4-linux
           path: target/release/ripperx4
   build-macos:
     runs-on: macos-latest
@@ -29,11 +37,19 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install glib/gtk dev
         run: brew install gtk4 gstreamer libdiscid sccache
+      - name: check cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - uses: actions-rs/clippy-check@v1
+        with:
+          args: --all-features
       - name: Build
         run: cargo build --release
       - name: Run tests
         run: cargo test
       - uses: actions/upload-artifact@v3
         with:
-          name: ripperx4
+          name: ripperx4-macos
           path: target/release/ripperx4
