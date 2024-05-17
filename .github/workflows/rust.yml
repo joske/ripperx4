@@ -1,4 +1,4 @@
-name: Rust-macOS
+name: Rust
 on: [push, pull_request]
 env:
   CARGO_TERM_COLOR: always
@@ -12,7 +12,7 @@ jobs:
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install glib/gtk dev
-        run: sudo apt-get install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev
+        run: sudo apt-get install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev libdiscid-dev
       - name: Build
         run: cargo build --release
       - name: Run tests
@@ -24,16 +24,16 @@ jobs:
   build-macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.4
+        uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install glib/gtk dev
         run: brew install gtk4 gstreamer libdiscid sccache
       - name: Build
         run: cargo build --release
       - name: Run tests
         run: cargo test
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         with:
           name: ripperx4
           path: target/release/ripperx4

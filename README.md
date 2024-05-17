@@ -39,8 +39,7 @@ Install gtk 4, gstreamer, libdiscid
 
 `cargo build`
 
-Tip: builds for x86 macOS are available on every build in Actions/Artifacts.
-(For some reason, building for linux on github actions runs into trouble with deps - seems to be an issue with GitHub's ubuntu image)
+Tip: builds for x86 macOS and linux are available on every build in Actions/Artifacts.
 
 ## Running
 
