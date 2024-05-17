@@ -10,17 +10,17 @@ pub struct Disc {
 }
 
 impl Disc {
-    pub(crate) fn with_tracks(num: i32) -> Disc {
+    pub(crate) fn with_tracks(num: u32) -> Disc {
         let mut d = Disc {
             title: "Unknown".to_string(),
             artist: "Unknown".to_string(),
             year: None,
             genre: None,
-            tracks: Vec::with_capacity(num as usize),
+            tracks: Vec::new(),
         };
         for i in 1..=num {
             d.tracks.push(Track {
-                number: i as u32,
+                number: i,
                 title: "Unknown".to_string(),
                 artist: "Unknown".to_string(),
                 duration: 0,

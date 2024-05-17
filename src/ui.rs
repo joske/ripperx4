@@ -15,7 +15,7 @@ use std::{
     thread,
 };
 
-pub fn build_ui(app: &Application) {
+pub fn build(app: &Application) {
     let data = Arc::new(RwLock::new(Data {
         ..Default::default()
     }));
@@ -215,7 +215,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let tree: TreeView = builder
         .object("track_listview")
         .expect("Failed to get widget");
-    let store = ListStore::new(&[Type::BOOL, Type::U8, Type::STRING, Type::STRING]);
+    let store = ListStore::new(&[Type::BOOL, Type::U32, Type::STRING, Type::STRING]);
     tree.set_model(Some(&store));
     let bool_renderer = gtk::CellRendererToggle::new();
     bool_renderer.set_property("activatable", true);
@@ -307,7 +307,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
         if let Ok(discid) = scan_disc() {
             debug!("Scanned: {discid:?}");
             debug!("id={}", discid.id());
-            let disc = lookup_disc(discid);
+            let disc = lookup_disc(&discid);
             debug!("disc:{}", disc.title);
             // store.clear();
             title_text.buffer().set_text(&disc.title);
@@ -332,10 +332,7 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
                         let title = &d.tracks[i].title.clone();
                         let artist = &d.tracks[i].artist.clone();
                         debug!("{}: {} - {}", num, title, artist);
-                        store.set(
-                            &iter,
-                            &[(0, &true), (1, &(num as u8)), (2, &title), (3, &artist)],
-                        );
+                        store.set(&iter, &[(0, &true), (1, &num), (2, &title), (3, &artist)]);
                     }
                 }
             }
@@ -383,7 +380,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
                 if let Ok(data_go) = data.clone().read() {
                     if let Some(disc) = &data_go.disc {
                         match extract(disc, &tx, &ripping_clone3) {
-                            Ok(_) => {
+                            Ok(()) => {
                                 debug!("done");
                                 tx.send_blocking("done".to_owned()).ok();
                             }

@@ -20,12 +20,16 @@ pub fn scan_disc() -> Result<DiscId, DiscError> {
     }
 }
 
-pub fn lookup_disc(discid: DiscId) -> Disc {
+#[allow(clippy::cast_sign_loss)]
+pub fn lookup_disc(discid: &DiscId) -> Disc {
     debug!("id={}", discid.id());
     if let Ok(disc) = crate::musicbrainz::lookup(&discid.id()) {
         disc
     } else {
-        Disc::with_tracks(discid.last_track_num() - discid.first_track_num() + 1)
+        let last = discid.last_track_num() as u32;
+        let first = discid.first_track_num() as u32;
+        let num: u32 = last.saturating_sub(first) + 1;
+        Disc::with_tracks(num)
     }
 }
 
@@ -48,14 +52,14 @@ mod test {
 
     #[test]
     fn test_lookup_disc_dire_straits() {
-        let disc = lookup_disc(fake_discid());
+        let disc = lookup_disc(&fake_discid());
         assert_eq!(disc.tracks.len(), 12);
         assert_eq!(disc.title, "Money for Nothing");
     }
 
     #[test]
     fn test_lookup_disc_bad_discid() {
-        let disc = lookup_disc(bad_discid());
+        let disc = lookup_disc(&bad_discid());
         assert_eq!(disc.tracks.len(), 2);
         assert_eq!(disc.title, "Unknown");
         assert_eq!(disc.artist, "Unknown");

@@ -28,6 +28,6 @@ pub fn main() {
     let app = Application::builder()
         .application_id("be.sourcery.ripperx4")
         .build();
-    app.connect_activate(ui::build_ui);
+    app.connect_activate(ui::build);
     app.run();
 }

@@ -158,9 +158,8 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
 
     let extension = match config.encoder {
         Encoder::MP3 => ".mp3",
-        Encoder::OGG => ".ogg",
         Encoder::FLAC => ".flac",
-        Encoder::OPUS => ".ogg",
+        Encoder::OGG | Encoder::OPUS => ".ogg",
     };
 
     let location = format!(
@@ -241,9 +240,9 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
             let mux = ElementFactory::make("oggmux").build()?;
 
             let bitrate = match config.quality {
-                crate::data::Quality::Low => 64000_i32,
-                crate::data::Quality::Medium => 128000_i32,
-                crate::data::Quality::High => 256000_i32,
+                crate::data::Quality::Low => 64_000_i32,
+                crate::data::Quality::Medium => 128_000_i32,
+                crate::data::Quality::High => 256_000_i32,
             };
             opus.set_property("bitrate", bitrate);
             let tagsetter = &opus
