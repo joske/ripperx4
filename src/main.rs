@@ -1,6 +1,6 @@
 use confy::ConfyError;
 use data::Config;
-use gtk::{gio::resources_register_include, prelude::*, Application};
+use gtk::{Application, gio::resources_register_include, prelude::*};
 
 mod data;
 mod musicbrainz;

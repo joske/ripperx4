@@ -1,15 +1,15 @@
 use crate::data::{Config, Disc, Encoder, Track};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use async_channel::Sender;
 use glib::ControlFlow;
 use gstreamer::{
+    ClockTime, Element, ElementFactory, Format, GenericFormattedValue, MessageView, Pipeline,
+    State, TagList, TagMergeMode, TagSetter, URIType,
     format::Percent,
     glib,
     glib::MainLoop,
     prelude::*,
     tags::{Album, Artist, Composer, Date, Duration, Title, TrackNumber},
-    ClockTime, Element, ElementFactory, Format, GenericFormattedValue, MessageView, Pipeline,
-    State, TagList, TagMergeMode, TagSetter, URIType,
 };
 use log::{debug, error};
 use std::{
@@ -262,7 +262,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
 #[cfg(test)]
 mod test {
     use anyhow::Result;
-    use gstreamer::{prelude::*, Element, ElementFactory, Pipeline};
+    use gstreamer::{Element, ElementFactory, Pipeline, prelude::*};
     use serial_test::serial;
     use std::{
         env,

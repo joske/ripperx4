@@ -1,4 +1,4 @@
-use gtk::gio::{self, resources_register_include, ResourceLookupFlags};
+use gtk::gio::{self, ResourceLookupFlags, resources_register_include};
 
 #[test]
 fn load_image_resources() {
@@ -14,9 +14,8 @@ fn load_image_resources() {
     ]
     .into_iter()
     {
-        let bytes =
-            gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
-                .unwrap_or_else(|err| panic!("failed to read {path}: {err}"));
+        let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
+            .unwrap_or_else(|err| panic!("failed to read {path}: {err}"));
         assert!(
             !bytes.is_empty(),
             "resource {path} is empty even though it exists"
