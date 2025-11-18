@@ -362,7 +362,7 @@ mod test {
         let encoder = ElementFactory::make("opusenc").build()?;
         let mux = ElementFactory::make("oggmux").build()?;
         let sink = ElementFactory::make("filesink").build()?;
-        let dest = "/tmp/file_example_WAV_1MG.ogg";
+        let dest = "/tmp/file_example_WAV_1MG-opus.ogg";
         sink.set_property("location", dest);
         let pipeline = Pipeline::new();
         let elements = &[&file, &wav, &convert, &encoder, &mux, &sink];
