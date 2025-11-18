@@ -15,10 +15,11 @@
             <property name="hexpand">True</property>
             <property name="height_request">60</property>
             <child>
-              <object class="GtkImage">
-                <property name="resource">/xpms/ripperX.xpm</property>
+              <object class="GtkPicture" id="logo_picture">
                 <property name="height_request">60</property>
                 <property name="hexpand">True</property>
+                <property name="content-fit">fill</property>
+                <property name="can-shrink">False</property>
               </object>
             </child>
             <child>
@@ -26,9 +27,10 @@
                 <child>
                   <object class="GtkButton" id="config_button">
                     <child>
-                      <object class="GtkImage">
-                        <property name="resource">/xpms/config.xpm</property>
+                      <object class="GtkPicture" id="config_picture">
                         <property name="hexpand">True</property>
+                        <property name="content-fit">fill</property>
+                        <property name="can-shrink">False</property>
                       </object>
                     </child>
                   </object>
@@ -36,9 +38,10 @@
                 <child>
                   <object class="GtkButton" id="scan_button">
                     <child>
-                      <object class="GtkImage">
-                        <property name="resource">/xpms/scan.xpm</property>
+                      <object class="GtkPicture" id="scan_picture">
                         <property name="hexpand">True</property>
+                        <property name="content-fit">fill</property>
+                        <property name="can-shrink">False</property>
                       </object>
                     </child>
                   </object>
@@ -46,9 +49,10 @@
                 <child>
                   <object class="GtkButton" id="stop_button">
                     <child>
-                      <object class="GtkImage">
-                        <property name="resource">/xpms/stop.xpm</property>
+                      <object class="GtkPicture" id="stop_picture">
                         <property name="hexpand">True</property>
+                        <property name="content-fit">fill</property>
+                        <property name="can-shrink">False</property>
                       </object>
                     </child>
                   </object>
@@ -56,9 +60,10 @@
                 <child>
                   <object class="GtkButton" id="go_button">
                     <child>
-                      <object class="GtkImage">
-                        <property name="resource">/xpms/go.xpm</property>
+                      <object class="GtkPicture" id="go_picture">
                         <property name="hexpand">True</property>
+                        <property name="content-fit">fill</property>
+                        <property name="can-shrink">False</property>
                       </object>
                     </child>
                   </object>
@@ -66,9 +71,10 @@
                 <child>
                   <object class="GtkButton" id="exit">
                     <child>
-                      <object class="GtkImage">
-                        <property name="resource">/xpms/exit.xpm</property>
+                      <object class="GtkPicture" id="exit_picture">
                         <property name="hexpand">True</property>
+                        <property name="content-fit">fill</property>
+                        <property name="can-shrink">False</property>
                       </object>
                     </child>
                   </object>

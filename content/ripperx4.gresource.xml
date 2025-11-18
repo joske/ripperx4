@@ -2,12 +2,12 @@
 <gresources>
   <gresource>
     <file compressed="true">ripperx4.ui</file>
-    <file compressed="true">xpms/go.xpm</file>
-    <file compressed="true">xpms/ripperX.xpm</file>
-    <file compressed="true">xpms/stop.xpm</file>
-    <file compressed="true">xpms/exit.xpm</file>
-    <file compressed="true">xpms/cddb.xpm</file>
-    <file compressed="true">xpms/scan.xpm</file>
-    <file compressed="true">xpms/config.xpm</file>
+    <file compressed="true">images/go.png</file>
+    <file compressed="true">images/ripperX.png</file>
+    <file compressed="true">images/stop.png</file>
+    <file compressed="true">images/exit.png</file>
+    <file compressed="true">images/cddb.png</file>
+    <file compressed="true">images/scan.png</file>
+    <file compressed="true">images/config.png</file>
   </gresource>
 </gresources>

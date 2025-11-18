@@ -6,8 +6,8 @@ use crate::{
 use glib::Type;
 use gtk::{
     Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog, DropDown,
-    Frame, ListStore, MessageDialog, MessageType, Orientation, Separator, Statusbar, TextView,
-    TreeView, prelude::*,
+    Frame, ListStore, MessageDialog, MessageType, Orientation, Picture, Separator, Statusbar,
+    TextView, TreeView, prelude::*,
 };
 use log::debug;
 use std::{
@@ -25,6 +25,12 @@ pub fn build(app: &Application) {
     builder
         .add_from_resource("/ripperx4.ui")
         .expect("failed to load UI");
+    set_picture(&builder, "logo_picture", "/images/ripperX.png");
+    set_picture(&builder, "config_picture", "/images/config.png");
+    set_picture(&builder, "scan_picture", "/images/scan.png");
+    set_picture(&builder, "stop_picture", "/images/stop.png");
+    set_picture(&builder, "go_picture", "/images/go.png");
+    set_picture(&builder, "exit_picture", "/images/exit.png");
 
     let window: ApplicationWindow = builder.object("window").expect("Failed to get widget");
     window.set_application(Some(app));
@@ -50,6 +56,13 @@ pub fn build(app: &Application) {
     handle_stop(ripping.clone(), &builder);
 
     handle_go(ripping, data, &builder);
+}
+
+fn set_picture(builder: &Builder, id: &str, resource: &str) {
+    let picture: Picture = builder
+        .object(id)
+        .unwrap_or_else(|| panic!("Failed to get picture {id}"));
+    picture.set_resource(Some(resource));
 }
 
 fn handle_config(config_button: &Button, window: &ApplicationWindow) {
