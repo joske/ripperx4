@@ -1,5 +1,5 @@
 use crate::data::{Disc, Track};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use minidom::Element;
 
 macro_rules! get_child {
@@ -24,9 +24,9 @@ macro_rules! get_first_child {
 /// Returns a `Disc` if a disc was found and parsing metadata succeeds
 pub fn lookup(discid: &str) -> Result<Disc> {
     let lookup = format!("https://musicbrainz.org/ws/2/discid/{discid}");
-    let body: String = ureq::get(&lookup).call()?.into_string()?;
+    let body: String = ureq::get(&lookup).call()?.body_mut().read_to_string()?;
     let release = get_release_url(&body)?;
-    let body: String = ureq::get(&release).call()?.into_string()?;
+    let body: String = ureq::get(&release).call()?.body_mut().read_to_string()?;
     parse_metadata(&body)
 }
 

@@ -5,9 +5,9 @@ use crate::{
 };
 use glib::Type;
 use gtk::{
-    prelude::*, Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog,
-    DropDown, Frame, ListStore, MessageDialog, MessageType, Orientation, Separator, Statusbar,
-    TextView, TreeView,
+    Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog, DropDown,
+    Frame, ListStore, MessageDialog, MessageType, Orientation, Separator, Statusbar, TextView,
+    TreeView, prelude::*,
 };
 use log::debug;
 use std::{
@@ -164,24 +164,24 @@ fn handle_disc(data: Arc<RwLock<Data>>, builder: &Builder) {
     let title_buffer = title_text.buffer();
     let data_title = data.clone();
     title_buffer.connect_changed(move |s| {
-        if let Ok(mut data) = data_title.write() {
-            if data.disc.is_some() {
-                let new_title = s.text(&s.start_iter(), &s.end_iter(), false);
-                if let Some(disc) = data.disc.as_mut() {
-                    disc.title = new_title.to_string();
-                }
+        if let Ok(mut data) = data_title.write()
+            && data.disc.is_some()
+        {
+            let new_title = s.text(&s.start_iter(), &s.end_iter(), false);
+            if let Some(disc) = data.disc.as_mut() {
+                disc.title = new_title.to_string();
             }
         }
     });
     let artist_buffer = artist_text.buffer();
     let data_artist = data;
     artist_buffer.connect_changed(move |s| {
-        if let Ok(mut data) = data_artist.write() {
-            if data.disc.is_some() {
-                let new_artist = s.text(&s.start_iter(), &s.end_iter(), false);
-                if let Some(disc) = data.disc.as_mut() {
-                    disc.artist = new_artist.to_string();
-                }
+        if let Ok(mut data) = data_artist.write()
+            && data.disc.is_some()
+        {
+            let new_artist = s.text(&s.start_iter(), &s.end_iter(), false);
+            if let Some(disc) = data.disc.as_mut() {
+                disc.artist = new_artist.to_string();
             }
         }
     });
@@ -326,14 +326,14 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
             // here we know how many tracks there are
             for i in 0..tracks {
                 let iter = store.append();
-                if let Ok(r) = data.read() {
-                    if let Some(d) = r.disc.as_ref() {
-                        let num = d.tracks[i].number;
-                        let title = &d.tracks[i].title.clone();
-                        let artist = &d.tracks[i].artist.clone();
-                        debug!("{}: {} - {}", num, title, artist);
-                        store.set(&iter, &[(0, &true), (1, &num), (2, &title), (3, &artist)]);
-                    }
+                if let Ok(r) = data.read()
+                    && let Some(d) = r.disc.as_ref()
+                {
+                    let num = d.tracks[i].number;
+                    let title = &d.tracks[i].title.clone();
+                    let artist = &d.tracks[i].artist.clone();
+                    debug!("{}: {} - {}", num, title, artist);
+                    store.set(&iter, &[(0, &true), (1, &num), (2, &title), (3, &artist)]);
                 }
             }
             go_button.set_sensitive(true);
@@ -377,8 +377,8 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
             let (tx, rx) = async_channel::unbounded();
             let ripping_clone3 = ripping_arc.clone();
             thread::spawn(glib::clone!(@weak data => move || {
-                if let Ok(data_go) = data.clone().read() {
-                    if let Some(disc) = &data_go.disc {
+                if let Ok(data_go) = data.clone().read()
+                    && let Some(disc) = &data_go.disc {
                         match extract(disc, &tx, &ripping_clone3) {
                             Ok(()) => {
                                 debug!("done");
@@ -391,7 +391,6 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
                             }
                         }
                     }
-                }
             }));
             let scan_button_clone = scan_button;
             let go_button_clone = go_button;
