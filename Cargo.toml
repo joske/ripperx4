@@ -15,9 +15,9 @@ anyhow = "1.0"
 async-channel = "2.1"
 confy = "2.0"
 discid = "0.5"
-glib = "0.19"
+glib = "0.21"
 gstreamer = "0.24"
-gtk = { package = "gtk4", version = "0.8", features = ["v4_8"] }
+gtk = { package = "gtk4", version = "0.10", features = ["v4_8"] }
 home = "0.5"
 log = "0.4"
 minidom = "0.18"
@@ -29,4 +29,4 @@ ureq = "3.1"
 serial_test = "3.2"
 
 [build-dependencies]
-glib-build-tools = "0.19"
+glib-build-tools = "0.21"

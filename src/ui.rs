@@ -123,37 +123,45 @@ fn handle_config(config_button: &Button, window: &ApplicationWindow) {
             .width_request(300)
             .transient_for(&window)
             .build();
-        ok_button.connect_clicked(glib::clone!(@weak dialog => move |_| {
-            let buf = path.buffer();
-            let new_path = path
-                .buffer()
-                .text(&buf.start_iter(), &buf.end_iter(), false);
-            if let Ok(mut config) = config.write() {
-                config.encode_path = new_path.to_string();
-                let c = combo.selected();
-                config.encoder = match c {
-                    0 => Encoder::MP3,
-                    1 => Encoder::OGG,
-                    2 => Encoder::FLAC,
-                    3 => Encoder::OPUS,
-                    _ => panic!("invalid value"),
-                };
-                let c = quality_combo.selected();
-                config.quality = match c {
-                    0 => Quality::Low,
-                    1 => Quality::Medium,
-                    2 => Quality::High,
-                    _ => panic!("invalid value"),
-                };
-                confy::store("ripperx4", None, &*config).ok();
-            } else {
-                debug!("Failed to write config");
+        ok_button.connect_clicked(glib::clone!(
+            #[weak]
+            dialog,
+            move |_| {
+                let buf = path.buffer();
+                let new_path = path
+                    .buffer()
+                    .text(&buf.start_iter(), &buf.end_iter(), false);
+                if let Ok(mut config) = config.write() {
+                    config.encode_path = new_path.to_string();
+                    let c = combo.selected();
+                    config.encoder = match c {
+                        0 => Encoder::MP3,
+                        1 => Encoder::OGG,
+                        2 => Encoder::FLAC,
+                        3 => Encoder::OPUS,
+                        _ => panic!("invalid value"),
+                    };
+                    let c = quality_combo.selected();
+                    config.quality = match c {
+                        0 => Quality::Low,
+                        1 => Quality::Medium,
+                        2 => Quality::High,
+                        _ => panic!("invalid value"),
+                    };
+                    confy::store("ripperx4", None, &*config).ok();
+                } else {
+                    debug!("Failed to write config");
+                }
+                dialog.close();
             }
-            dialog.close();
-        }));
-        cancel_button.connect_clicked(glib::clone!(@weak dialog => move |_| {
-            dialog.close();
-        }));
+        ));
+        cancel_button.connect_clicked(glib::clone!(
+            #[weak]
+            dialog,
+            move |_| {
+                dialog.close();
+            }
+        ));
         dialog.show();
     });
 }
@@ -353,9 +361,13 @@ fn show_message(message: &str, typ: MessageType, window: &ApplicationWindow) {
         .transient_for(window)
         .width_request(300)
         .build();
-    dialog.connect_response(glib::clone!(@weak dialog => move |_, _| {
-        dialog.close();
-    }));
+    dialog.connect_response(glib::clone!(
+        #[weak]
+        dialog,
+        move |_, _| {
+            dialog.close();
+        }
+    ));
     dialog.show();
 }
 
@@ -365,55 +377,65 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
     go_button.set_sensitive(false);
     let status: Statusbar = builder.object("statusbar").expect("Failed to get widget");
     let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
-    go_button.connect_clicked(glib::clone!(@weak status => move |_| {
-        if let Ok(mut ripping) = ripping_arc.write() {
-            stop_button.set_sensitive(true);
-            let go_button: Button = builder.object("go_button").expect("Failed to get widget");
-            go_button.set_sensitive(false);
-            let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
-            scan_button.set_sensitive(false);
-            *ripping = true;
-            let context_id = status.context_id("foo");
-            let (tx, rx) = async_channel::unbounded();
-            let ripping_clone3 = ripping_arc.clone();
-            thread::spawn(glib::clone!(@weak data => move || {
-                if let Ok(data_go) = data.clone().read()
-                    && let Some(disc) = &data_go.disc {
-                        match extract(disc, &tx, &ripping_clone3) {
-                            Ok(()) => {
-                                debug!("done");
-                                tx.send_blocking("done".to_owned()).ok();
-                            }
-                            Err(e) => {
-                                let msg = format!("Error: {e}");
-                                debug!("{msg}");
-                                tx.send_blocking("aborted".to_owned()).ok();
+    go_button.connect_clicked(glib::clone!(
+        #[weak]
+        status,
+        move |_| {
+            if let Ok(mut ripping) = ripping_arc.write() {
+                stop_button.set_sensitive(true);
+                let go_button: Button = builder.object("go_button").expect("Failed to get widget");
+                go_button.set_sensitive(false);
+                let scan_button: Button =
+                    builder.object("scan_button").expect("Failed to get widget");
+                scan_button.set_sensitive(false);
+                *ripping = true;
+                let context_id = status.context_id("foo");
+                let (tx, rx) = async_channel::unbounded();
+                let ripping_clone3 = ripping_arc.clone();
+                thread::spawn(glib::clone!(
+                    #[weak]
+                    data,
+                    move || {
+                        if let Ok(data_go) = data.clone().read()
+                            && let Some(disc) = &data_go.disc
+                        {
+                            match extract(disc, &tx, &ripping_clone3) {
+                                Ok(()) => {
+                                    debug!("done");
+                                    tx.send_blocking("done".to_owned()).ok();
+                                }
+                                Err(e) => {
+                                    let msg = format!("Error: {e}");
+                                    debug!("{msg}");
+                                    tx.send_blocking("aborted".to_owned()).ok();
+                                }
                             }
                         }
                     }
-            }));
-            let scan_button_clone = scan_button;
-            let go_button_clone = go_button;
-            let stop_button_clone = stop_button.clone();
-            glib::spawn_future_local(async move {
-                while let Ok(value) =rx.recv().await {
-                    let s = value.clone();
-                    status.remove_all(context_id);
-                    status.push(context_id, &s);
-                    if s == "aborted" {
-                        scan_button_clone.set_sensitive(true);
-                        go_button_clone.set_sensitive(true);
-                        stop_button_clone.set_sensitive(false);
-                        break;
+                ));
+                let scan_button_clone = scan_button;
+                let go_button_clone = go_button;
+                let stop_button_clone = stop_button.clone();
+                glib::spawn_future_local(async move {
+                    while let Ok(value) = rx.recv().await {
+                        let s = value.clone();
+                        status.remove_all(context_id);
+                        status.push(context_id, &s);
+                        if s == "aborted" {
+                            scan_button_clone.set_sensitive(true);
+                            go_button_clone.set_sensitive(true);
+                            stop_button_clone.set_sensitive(false);
+                            break;
+                        }
+                        if s == "done" {
+                            scan_button_clone.set_sensitive(true);
+                            go_button_clone.set_sensitive(true);
+                            stop_button_clone.set_sensitive(false);
+                            break;
+                        }
                     }
-                    if s == "done" {
-                        scan_button_clone.set_sensitive(true);
-                        go_button_clone.set_sensitive(true);
-                        stop_button_clone.set_sensitive(false);
-                        break;
-                    }
-                }
-            });
+                });
+            }
         }
-    }));
+    ));
 }
