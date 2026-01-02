@@ -68,6 +68,8 @@ fn extract_track(
         .bus()
         .ok_or_else(|| anyhow!("Pipeline has no bus"))?;
     let status_clone = status.clone();
+    let last_error = Arc::new(RwLock::new(None));
+    let last_error_clone = last_error.clone();
 
     let _guard = bus.add_watch(move |_, msg| {
         match msg.view() {
@@ -80,6 +82,14 @@ fn extract_track(
             MessageView::Error(err) => {
                 let _ = status_clone.send_blocking("aborted".to_owned());
                 set_working(&working, false);
+                if let Ok(mut e) = last_error_clone.write() {
+                    *e = Some(format!(
+                        "GStreamer error from {:?}: {} ({:?})",
+                        err.src().map(GstObjectExt::path_string),
+                        err.error(),
+                        err.debug()
+                    ));
+                }
                 error!(
                     "GStreamer error from {:?}: {} ({:?})",
                     err.src().map(GstObjectExt::path_string),
@@ -95,6 +105,11 @@ fn extract_track(
     })?;
 
     main_loop.run();
+    if let Ok(e) = last_error.read()
+        && let Some(msg) = e.as_ref()
+    {
+        return Err(anyhow!(msg.clone()));
+    }
     debug!("Finished encoding {title}");
     Ok(())
 }
@@ -209,9 +224,12 @@ fn build_tags(track: &Track, disc: &Disc) -> Result<TagList> {
 /// Build the output file path and ensure directory exists
 fn build_output_path(config: &Config, disc: &Disc, track: &Track) -> Result<String> {
     let extension = config.encoder.file_extension();
+    let artist = sanitize_path_component(&disc.artist);
+    let album = sanitize_path_component(&disc.title);
+    let title = sanitize_path_component(&track.title);
     let path = format!(
-        "{}/{}-{}/{}{}",
-        config.encode_path, disc.artist, disc.title, track.title, extension
+        "{}/{}-{}/{} - {}{}",
+        config.encode_path, artist, album, track.number, title, extension
     );
 
     let parent = Path::new(&path)
@@ -220,6 +238,25 @@ fn build_output_path(config: &Config, disc: &Disc, track: &Track) -> Result<Stri
     std::fs::create_dir_all(parent)?;
 
     Ok(path)
+}
+
+fn sanitize_path_component(value: &str) -> String {
+    let mut out: String = value
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == ' ' || c == '.' || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    out = out.trim().to_string();
+    if out.is_empty() {
+        "Unknown".to_string()
+    } else {
+        out
+    }
 }
 
 /// Create file sink element
