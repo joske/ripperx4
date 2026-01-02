@@ -48,7 +48,7 @@ pub struct Data {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Serialize, Deserialize, Default, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone, Copy)]
 pub enum Encoder {
     #[default]
     MP3,
@@ -88,7 +88,7 @@ impl Encoder {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone, Copy)]
 pub enum Quality {
     Low,
     #[default]
@@ -152,7 +152,7 @@ impl Quality {
         }
     }
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub encode_path: String,
     pub encoder: Encoder,
