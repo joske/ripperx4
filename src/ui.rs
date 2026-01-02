@@ -3,28 +3,73 @@ use crate::{
     ripper::extract,
     util::{lookup_disc, scan_disc},
 };
-use glib::Type;
+use glib::{prelude::IsA, Type};
 use gtk::{
     Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog, DropDown,
-    Frame, ListStore, MessageDialog, MessageType, Orientation, Picture, Separator, Statusbar,
-    TextView, TreeView, prelude::*,
+    Entry, Frame, ListStore, MessageDialog, MessageType, Orientation, Picture, Separator,
+    Statusbar, TreeView, prelude::*,
 };
-use log::debug;
+use log::{debug, warn};
 use std::{
     sync::{Arc, RwLock},
     thread,
 };
 
+/// Helper to get a widget from builder, logging errors instead of panicking
+fn get_widget<T: IsA<glib::Object>>(builder: &Builder, id: &str) -> Option<T> {
+    builder.object(id).or_else(|| {
+        warn!("Failed to get widget: {id}");
+        None
+    })
+}
+
+/// Set a picture resource, logging if the widget is not found
+fn set_picture(builder: &Builder, id: &str, resource: &str) {
+    if let Some(picture) = get_widget::<Picture>(builder, id) {
+        picture.set_resource(Some(resource));
+    }
+}
+
+/// Wrapper for buttons that manages state together
+struct ButtonGroup {
+    scan: Button,
+    stop: Button,
+    go: Button,
+}
+
+impl ButtonGroup {
+    fn from_builder(builder: &Builder) -> Option<Self> {
+        Some(Self {
+            scan: get_widget(builder, "scan_button")?,
+            stop: get_widget(builder, "stop_button")?,
+            go: get_widget(builder, "go_button")?,
+        })
+    }
+
+    fn set_ripping(&self, ripping: bool) {
+        self.scan.set_sensitive(!ripping);
+        self.stop.set_sensitive(ripping);
+        self.go.set_sensitive(!ripping);
+    }
+
+    fn set_idle(&self, has_disc: bool) {
+        self.scan.set_sensitive(true);
+        self.stop.set_sensitive(false);
+        self.go.set_sensitive(has_disc);
+    }
+}
+
 pub fn build(app: &Application) {
-    let data = Arc::new(RwLock::new(Data {
-        ..Default::default()
-    }));
+    let data = Arc::new(RwLock::new(Data::default()));
     let ripping = Arc::new(RwLock::new(false));
 
     let builder = Builder::new();
-    builder
-        .add_from_resource("/ripperx4.ui")
-        .expect("failed to load UI");
+    if let Err(e) = builder.add_from_resource("/ripperx4.ui") {
+        warn!("Failed to load UI: {e}");
+        return;
+    }
+
+    // Set up pictures
     set_picture(&builder, "logo_picture", "/images/ripperX.png");
     set_picture(&builder, "config_picture", "/images/config.png");
     set_picture(&builder, "scan_picture", "/images/scan.png");
@@ -32,100 +77,119 @@ pub fn build(app: &Application) {
     set_picture(&builder, "go_picture", "/images/go.png");
     set_picture(&builder, "exit_picture", "/images/exit.png");
 
-    let window: ApplicationWindow = builder.object("window").expect("Failed to get widget");
+    let Some(window) = get_widget::<ApplicationWindow>(&builder, "window") else {
+        warn!("Failed to get main window");
+        return;
+    };
     window.set_application(Some(app));
     window.present();
 
-    let window_clone = window.clone();
-    let exit_button: Button = builder.object("exit").expect("Failed to get widget");
-    exit_button.connect_clicked(move |_| {
-        window.close();
-    });
+    // Exit button
+    if let Some(exit_button) = get_widget::<Button>(&builder, "exit") {
+        let w = window.clone();
+        exit_button.connect_clicked(move |_| w.close());
+    }
+
+    // Initialize button states
+    if let Some(stop_button) = get_widget::<Button>(&builder, "stop_button") {
+        stop_button.set_sensitive(false);
+    }
+    if let Some(go_button) = get_widget::<Button>(&builder, "go_button") {
+        go_button.set_sensitive(false);
+    }
 
     handle_disc(data.clone(), &builder);
-
-    handle_scan(data.clone(), &builder, &window_clone);
-
-    let config_button: Button = builder
-        .object("config_button")
-        .expect("Failed to get widget");
-    handle_config(&config_button, &window_clone);
-
-    let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
-    stop_button.set_sensitive(false);
+    handle_scan(data.clone(), &builder, &window);
+    handle_config(&builder, &window);
     handle_stop(ripping.clone(), &builder);
-
     handle_go(ripping, data, &builder);
 }
 
-fn set_picture(builder: &Builder, id: &str, resource: &str) {
-    let picture: Picture = builder
-        .object(id)
-        .unwrap_or_else(|| panic!("Failed to get picture {id}"));
-    picture.set_resource(Some(resource));
-}
-
-fn handle_config(config_button: &Button, window: &ApplicationWindow) {
+fn handle_config(builder: &Builder, window: &ApplicationWindow) {
+    let Some(config_button) = get_widget::<Button>(builder, "config_button") else {
+        return;
+    };
     let window = window.clone();
+
     config_button.connect_clicked(move |_| {
-        let cfg: Config = confy::load("ripperx4", None).expect("Failed to load config");
+        let cfg: Config = confy::load("ripperx4", None).unwrap_or_default();
         let config = Arc::new(RwLock::new(cfg));
+
         let child = Box::builder()
             .orientation(Orientation::Vertical)
             .spacing(10)
+            .margin_start(10)
+            .margin_end(10)
+            .margin_top(10)
+            .margin_bottom(10)
             .hexpand(true)
             .vexpand(true)
             .build();
+
         let frame = Frame::builder()
             .child(&child)
             .label("Configuration")
             .hexpand(true)
             .vexpand(true)
             .build();
-        let path = TextView::builder().visible(true).hexpand(true).build();
-        let options = ["mp3", "ogg", "flac", "opus"];
-        let combo = DropDown::from_strings(&options);
+
+        // Path entry
+        let path_entry = Entry::builder()
+            .hexpand(true)
+            .placeholder_text("Output path")
+            .build();
+
+        // Encoder dropdown
+        let encoder_combo = DropDown::from_strings(Encoder::OPTIONS);
+
+        // Quality dropdown
+        let quality_combo = DropDown::from_strings(Quality::OPTIONS);
+
+        // Populate from config
         if let Ok(c) = config.read() {
-            path.buffer().set_text(&c.encode_path);
-            child.append(&path);
-            let selected = match c.encoder {
-                Encoder::MP3 => 0,
-                Encoder::OGG => 1,
-                Encoder::FLAC => 2,
-                Encoder::OPUS => 3,
-            };
-            combo.set_selected(selected);
-        } else {
-            debug!("Failed to read config");
+            path_entry.set_text(&c.encode_path);
+            encoder_combo.set_selected(c.encoder.to_index());
+            quality_combo.set_selected(c.quality.to_index());
         }
-        child.append(&combo);
-        // quality
-        let quality_options = ["low", "medium", "high"];
-        let quality_combo = DropDown::from_strings(&quality_options);
-        if let Ok(c) = config.read() {
-            path.buffer().set_text(&c.encode_path);
-            child.append(&path);
-            let selected = match c.quality {
-                Quality::Low => 0,
-                Quality::Medium => 1,
-                Quality::High => 2,
-            };
-            quality_combo.set_selected(selected);
-        } else {
-            debug!("Failed to read config");
-        }
-        child.append(&quality_combo);
+
+        // Path label and entry
+        let path_box = Box::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(10)
+            .build();
+        path_box.append(&gtk::Label::new(Some("Output path:")));
+        path_box.append(&path_entry);
+        child.append(&path_box);
+
+        // Encoder label and combo
+        let encoder_box = Box::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(10)
+            .build();
+        encoder_box.append(&gtk::Label::new(Some("Encoder:")));
+        encoder_box.append(&encoder_combo);
+        child.append(&encoder_box);
+
+        // Quality label and combo
+        let quality_box = Box::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(10)
+            .build();
+        quality_box.append(&gtk::Label::new(Some("Quality:")));
+        quality_box.append(&quality_combo);
+        child.append(&quality_box);
 
         let separator = Separator::builder().vexpand(true).build();
         child.append(&separator);
+
         let button_box = Box::builder()
             .orientation(Orientation::Horizontal)
             .spacing(10)
             .halign(Align::End)
             .build();
         let ok_button = Button::builder().label("Ok").build();
-        button_box.append(&ok_button);
         let cancel_button = Button::builder().label("Cancel").build();
+        button_box.append(&ok_button);
         button_box.append(&cancel_button);
         child.append(&button_box);
 
@@ -133,233 +197,250 @@ fn handle_config(config_button: &Button, window: &ApplicationWindow) {
             .title("Configuration")
             .modal(true)
             .child(&frame)
-            .width_request(300)
+            .width_request(400)
             .transient_for(&window)
             .build();
+
         ok_button.connect_clicked(glib::clone!(
             #[weak]
             dialog,
             move |_| {
-                let buf = path.buffer();
-                let new_path = path
-                    .buffer()
-                    .text(&buf.start_iter(), &buf.end_iter(), false);
-                if let Ok(mut config) = config.write() {
-                    config.encode_path = new_path.to_string();
-                    let c = combo.selected();
-                    config.encoder = match c {
-                        0 => Encoder::MP3,
-                        1 => Encoder::OGG,
-                        2 => Encoder::FLAC,
-                        3 => Encoder::OPUS,
-                        _ => panic!("invalid value"),
-                    };
-                    let c = quality_combo.selected();
-                    config.quality = match c {
-                        0 => Quality::Low,
-                        1 => Quality::Medium,
-                        2 => Quality::High,
-                        _ => panic!("invalid value"),
-                    };
-                    confy::store("ripperx4", None, &*config).ok();
-                } else {
-                    debug!("Failed to write config");
+                if let Ok(mut cfg) = config.write() {
+                    cfg.encode_path = path_entry.text().to_string();
+                    cfg.encoder = Encoder::from_index(encoder_combo.selected());
+                    cfg.quality = Quality::from_index(quality_combo.selected());
+                    if let Err(e) = confy::store("ripperx4", None, &*cfg) {
+                        warn!("Failed to save config: {e}");
+                    }
                 }
                 dialog.close();
             }
         ));
+
         cancel_button.connect_clicked(glib::clone!(
             #[weak]
             dialog,
-            move |_| {
-                dialog.close();
-            }
+            move |_| dialog.close()
         ));
+
         dialog.show();
     });
 }
 
 fn handle_disc(data: Arc<RwLock<Data>>, builder: &Builder) {
-    let title_text: TextView = builder.object("disc_title").expect("Failed to get widget");
-    let artist_text: TextView = builder.object("disc_artist").expect("Failed to get widget");
-    let title_buffer = title_text.buffer();
+    let Some(title_entry) = get_widget::<Entry>(builder, "disc_title") else {
+        return;
+    };
+    let Some(artist_entry) = get_widget::<Entry>(builder, "disc_artist") else {
+        return;
+    };
+
     let data_title = data.clone();
-    title_buffer.connect_changed(move |s| {
-        if let Ok(mut data) = data_title.write()
-            && data.disc.is_some()
-        {
-            let new_title = s.text(&s.start_iter(), &s.end_iter(), false);
+    title_entry.connect_changed(move |entry| {
+        if let Ok(mut data) = data_title.write() {
             if let Some(disc) = data.disc.as_mut() {
-                disc.title = new_title.to_string();
+                disc.title = entry.text().to_string();
             }
         }
     });
-    let artist_buffer = artist_text.buffer();
-    let data_artist = data;
-    artist_buffer.connect_changed(move |s| {
-        if let Ok(mut data) = data_artist.write()
-            && data.disc.is_some()
-        {
-            let new_artist = s.text(&s.start_iter(), &s.end_iter(), false);
+
+    artist_entry.connect_changed(move |entry| {
+        if let Ok(mut data) = data.write() {
             if let Some(disc) = data.disc.as_mut() {
-                disc.artist = new_artist.to_string();
+                disc.artist = entry.text().to_string();
             }
         }
     });
 }
 
 fn handle_stop(ripping: Arc<RwLock<bool>>, builder: &Builder) {
-    let builder = builder.clone();
-    let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
-    stop_button.connect_clicked(move |_| {
+    let Some(buttons) = ButtonGroup::from_builder(builder) else {
+        return;
+    };
+
+    let stop = buttons.stop.clone();
+    stop.connect_clicked(move |_| {
         debug!("stop");
-        if let Ok(mut ripping) = ripping.write() {
-            *ripping = false;
-            let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
-            stop_button.set_sensitive(false);
-            let go_button: Button = builder.object("go_button").expect("Failed to get widget");
-            go_button.set_sensitive(true); //
-            let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
-            scan_button.set_sensitive(true);
+        if let Ok(mut r) = ripping.write() {
+            *r = false;
+            buttons.set_idle(true);
         }
     });
 }
 
 fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationWindow) {
     let window = window.clone();
-    let title_text: TextView = builder.object("disc_title").expect("Failed to get widget");
-    let artist_text: TextView = builder.object("disc_artist").expect("Failed to get widget");
-    let year_text: TextView = builder.object("year").expect("Failed to get widget");
-    let genre_text: TextView = builder.object("genre").expect("Failed to get widget");
-    let go_button: Button = builder.object("go_button").expect("Failed to get widget");
-    // build treeview
-    let tree: TreeView = builder
-        .object("track_listview")
-        .expect("Failed to get widget");
+
+    let Some(title_entry) = get_widget::<Entry>(builder, "disc_title") else {
+        return;
+    };
+    let Some(artist_entry) = get_widget::<Entry>(builder, "disc_artist") else {
+        return;
+    };
+    let Some(year_entry) = get_widget::<Entry>(builder, "year") else {
+        return;
+    };
+    let Some(genre_entry) = get_widget::<Entry>(builder, "genre") else {
+        return;
+    };
+    let Some(go_button) = get_widget::<Button>(builder, "go_button") else {
+        return;
+    };
+    let Some(tree) = get_widget::<TreeView>(builder, "track_listview") else {
+        return;
+    };
+    let Some(scan_button) = get_widget::<Button>(builder, "scan_button") else {
+        return;
+    };
+
+    // Build tree model
     let store = ListStore::new(&[Type::BOOL, Type::U32, Type::STRING, Type::STRING]);
     tree.set_model(Some(&store));
-    let bool_renderer = gtk::CellRendererToggle::new();
-    bool_renderer.set_property("activatable", true);
-    let t = tree.clone();
-    let m = t.model().expect("Failed to get model");
-    let s = store.clone();
-    let d_clone = data.clone();
-    bool_renderer.connect_toggled(move |_, path| {
-        let iter = m.iter(&path).expect("Failed to get iter");
-        let old = s
-            .get_value(&iter, 0)
-            .get::<bool>()
-            .expect("Failed to get value");
-        let new = !old;
-        s.set_value(&iter, 0, &new.to_value());
-        if let Some(d) = d_clone
-            .write()
-            .expect("Failed to aquire write lock on data")
-            .disc
-            .as_mut()
-        {
-            let num = m
-                .get_value(&iter, 1)
-                .get::<u8>()
-                .expect("Failed to get value");
-            d.tracks[num as usize - 1].rip = new;
-        }
-    });
-    let column = gtk::TreeViewColumn::with_attributes("Encode", &bool_renderer, &[("active", 0)]);
-    tree.append_column(&column);
 
-    let renderer = gtk::CellRendererText::new();
-    let column = gtk::TreeViewColumn::with_attributes("Track", &renderer, &[("text", 1)]);
-    tree.append_column(&column);
+    // Encode column (toggle)
+    let toggle_renderer = gtk::CellRendererToggle::new();
+    toggle_renderer.set_property("activatable", true);
+    {
+        let model = store.clone();
+        let data = data.clone();
+        toggle_renderer.connect_toggled(move |_, path| {
+            let Some(iter) = model.iter(&path) else {
+                return;
+            };
+            let Ok(old) = model.get_value(&iter, 0).get::<bool>() else {
+                return;
+            };
+            let new = !old;
+            model.set_value(&iter, 0, &new.to_value());
 
-    let renderer = gtk::CellRendererText::new();
-    renderer.set_property("editable", true);
-    let t = tree.clone();
-    let m = t.model().expect("Failed to get model");
-    let s = store.clone();
-    let d_clone = data.clone();
-    renderer.connect_edited(move |_, path, new_text| {
-        let iter = m.iter(&path).expect("Failed to get iter");
-        s.set_value(&iter, 2, &new_text.to_value());
-        if let Some(d) = d_clone
-            .write()
-            .expect("Failed to aquire write lock on data")
-            .disc
-            .as_mut()
-        {
-            let num = m
-                .get_value(&iter, 1)
-                .get::<u8>()
-                .expect("Failed to get value");
-            d.tracks[num as usize - 1].title = new_text.to_string();
-        };
-    });
-    let column = gtk::TreeViewColumn::with_attributes("Title", &renderer, &[("text", 2)]);
-    tree.append_column(&column);
-
-    let renderer = gtk::CellRendererText::new();
-    renderer.set_property("editable", true);
-    let t = tree.clone();
-    let m = t.model().expect("Failed to get model");
-    let s = store.clone();
-    let d_clone = data.clone();
-    renderer.connect_edited(move |_, path, new_text| {
-        let iter = m.iter(&path).expect("Failed to get iter");
-        s.set_value(&iter, 3, &new_text.to_value());
-        if let Some(d) = d_clone
-            .write()
-            .expect("Failed to aquire write lock on data")
-            .disc
-            .as_mut()
-        {
-            let num = m
-                .get_value(&iter, 1)
-                .get::<u8>()
-                .expect("Failed to get value");
-            d.tracks[num as usize - 1].artist = new_text.to_string();
-        };
-    });
-    let column = gtk::TreeViewColumn::with_attributes("Artist", &renderer, &[("text", 3)]);
-    tree.append_column(&column);
-
-    let scan_button: Button = builder.object("scan_button").expect("Failed to get widget");
-    scan_button.connect_clicked(move |_| {
-        debug!("Scan");
-        if let Ok(discid) = scan_disc() {
-            debug!("Scanned: {discid:?}");
-            debug!("id={}", discid.id());
-            let disc = lookup_disc(&discid);
-            debug!("disc:{}", disc.title);
-            // store.clear();
-            title_text.buffer().set_text(&disc.title);
-            artist_text.buffer().set_text(&disc.artist);
-            if let Some(year) = disc.year {
-                year_text.buffer().set_text(&(year.to_string()));
-            }
-            if let Some(genre) = &disc.genre {
-                genre_text.buffer().set_text(&genre.clone());
-            }
-            let tracks = disc.tracks.len();
-            // panic if we can't get a write lock
-            data.write()
-                .expect("Failed to aquire write lock on data")
-                .disc = Some(disc);
-            // here we know how many tracks there are
-            for i in 0..tracks {
-                let iter = store.append();
-                if let Ok(r) = data.read()
-                    && let Some(d) = r.disc.as_ref()
-                {
-                    let num = d.tracks[i].number;
-                    let title = &d.tracks[i].title.clone();
-                    let artist = &d.tracks[i].artist.clone();
-                    debug!("{}: {} - {}", num, title, artist);
-                    store.set(&iter, &[(0, &true), (1, &num), (2, &title), (3, &artist)]);
+            if let Ok(mut d) = data.write() {
+                if let Some(disc) = d.disc.as_mut() {
+                    if let Ok(num) = model.get_value(&iter, 1).get::<u32>() {
+                        if let Some(track) = disc.tracks.get_mut(num as usize - 1) {
+                            track.rip = new;
+                        }
+                    }
                 }
             }
-            go_button.set_sensitive(true);
-        } else {
-            show_message("Failed to scan disc", MessageType::Error, &window);
+        });
+    }
+    tree.append_column(&gtk::TreeViewColumn::with_attributes(
+        "Encode",
+        &toggle_renderer,
+        &[("active", 0)],
+    ));
+
+    // Track number column
+    tree.append_column(&gtk::TreeViewColumn::with_attributes(
+        "Track",
+        &gtk::CellRendererText::new(),
+        &[("text", 1)],
+    ));
+
+    // Title column (editable)
+    let title_renderer = gtk::CellRendererText::new();
+    title_renderer.set_property("editable", true);
+    {
+        let model = store.clone();
+        let data = data.clone();
+        title_renderer.connect_edited(move |_, path, new_text| {
+            let Some(iter) = model.iter(&path) else {
+                return;
+            };
+            model.set_value(&iter, 2, &new_text.to_value());
+
+            if let Ok(mut d) = data.write() {
+                if let Some(disc) = d.disc.as_mut() {
+                    if let Ok(num) = model.get_value(&iter, 1).get::<u32>() {
+                        if let Some(track) = disc.tracks.get_mut(num as usize - 1) {
+                            track.title = new_text.to_string();
+                        }
+                    }
+                }
+            }
+        });
+    }
+    tree.append_column(&gtk::TreeViewColumn::with_attributes(
+        "Title",
+        &title_renderer,
+        &[("text", 2)],
+    ));
+
+    // Artist column (editable)
+    let artist_renderer = gtk::CellRendererText::new();
+    artist_renderer.set_property("editable", true);
+    {
+        let model = store.clone();
+        let data = data.clone();
+        artist_renderer.connect_edited(move |_, path, new_text| {
+            let Some(iter) = model.iter(&path) else {
+                return;
+            };
+            model.set_value(&iter, 3, &new_text.to_value());
+
+            if let Ok(mut d) = data.write() {
+                if let Some(disc) = d.disc.as_mut() {
+                    if let Ok(num) = model.get_value(&iter, 1).get::<u32>() {
+                        if let Some(track) = disc.tracks.get_mut(num as usize - 1) {
+                            track.artist = new_text.to_string();
+                        }
+                    }
+                }
+            }
+        });
+    }
+    tree.append_column(&gtk::TreeViewColumn::with_attributes(
+        "Artist",
+        &artist_renderer,
+        &[("text", 3)],
+    ));
+
+    // Scan button click handler
+    scan_button.connect_clicked(move |_| {
+        debug!("Scan");
+        match scan_disc() {
+            Ok(discid) => {
+                debug!("Scanned: {discid:?}");
+                debug!("id={}", discid.id());
+
+                let disc = lookup_disc(&discid);
+                debug!("disc: {}", disc.title);
+
+                title_entry.set_text(&disc.title);
+                artist_entry.set_text(&disc.artist);
+                year_entry.set_text(&disc.year.map_or(String::new(), |y| y.to_string()));
+                genre_entry.set_text(disc.genre.as_deref().unwrap_or(""));
+
+                let track_count = disc.tracks.len();
+
+                if let Ok(mut d) = data.write() {
+                    d.disc = Some(disc);
+                }
+
+                store.clear();
+                if let Ok(d) = data.read() {
+                    if let Some(disc) = &d.disc {
+                        for i in 0..track_count {
+                            let track = &disc.tracks[i];
+                            let iter = store.append();
+                            store.set(
+                                &iter,
+                                &[
+                                    (0, &true),
+                                    (1, &track.number),
+                                    (2, &track.title),
+                                    (3, &track.artist),
+                                ],
+                            );
+                        }
+                    }
+                }
+                go_button.set_sensitive(true);
+            }
+            Err(e) => {
+                debug!("Scan failed: {e}");
+                show_message("Failed to scan disc", MessageType::Error, &window);
+            }
         }
     });
 }
@@ -374,81 +455,85 @@ fn show_message(message: &str, typ: MessageType, window: &ApplicationWindow) {
         .transient_for(window)
         .width_request(300)
         .build();
+
     dialog.connect_response(glib::clone!(
         #[weak]
         dialog,
-        move |_, _| {
-            dialog.close();
-        }
+        move |_, _| dialog.close()
     ));
     dialog.show();
 }
 
 fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &Builder) {
-    let builder = builder.clone();
-    let go_button: Button = builder.object("go_button").expect("Failed to get widget");
-    go_button.set_sensitive(false);
-    let status: Statusbar = builder.object("statusbar").expect("Failed to get widget");
-    let stop_button: Button = builder.object("stop_button").expect("Failed to get widget");
-    go_button.connect_clicked(glib::clone!(
+    let Some(buttons) = ButtonGroup::from_builder(builder) else {
+        return;
+    };
+    let Some(status) = get_widget::<Statusbar>(builder, "statusbar") else {
+        return;
+    };
+
+    let go_button = buttons.go.clone();
+    let stop_button = buttons.stop.clone();
+    let scan_button = buttons.scan.clone();
+
+    let go_clone = go_button.clone();
+    go_clone.connect_clicked(glib::clone!(
         #[weak]
         status,
         move |_| {
-            if let Ok(mut ripping) = ripping_arc.write() {
-                stop_button.set_sensitive(true);
-                let go_button: Button = builder.object("go_button").expect("Failed to get widget");
-                go_button.set_sensitive(false);
-                let scan_button: Button =
-                    builder.object("scan_button").expect("Failed to get widget");
-                scan_button.set_sensitive(false);
-                *ripping = true;
-                let context_id = status.context_id("foo");
-                let (tx, rx) = async_channel::unbounded();
-                let ripping_clone3 = ripping_arc.clone();
-                thread::spawn(glib::clone!(
-                    #[weak]
-                    data,
-                    move || {
-                        if let Ok(data_go) = data.clone().read()
-                            && let Some(disc) = &data_go.disc
-                        {
-                            match extract(disc, &tx, &ripping_clone3) {
-                                Ok(()) => {
-                                    debug!("done");
-                                    tx.send_blocking("done".to_owned()).ok();
-                                }
-                                Err(e) => {
-                                    let msg = format!("Error: {e}");
-                                    debug!("{msg}");
-                                    tx.send_blocking("aborted".to_owned()).ok();
-                                }
-                            }
+            let Ok(mut ripping) = ripping_arc.write() else {
+                return;
+            };
+
+            buttons.set_ripping(true);
+            *ripping = true;
+
+            let context_id = status.context_id("ripping");
+            let (tx, rx) = async_channel::unbounded();
+            let ripping_clone = ripping_arc.clone();
+
+            thread::spawn(glib::clone!(
+                #[weak]
+                data,
+                move || {
+                    let result = data
+                        .read()
+                        .ok()
+                        .and_then(|d| d.disc.as_ref().map(|disc| extract(disc, &tx, &ripping_clone)));
+
+                    match result {
+                        Some(Ok(())) => {
+                            debug!("done");
+                            let _ = tx.send_blocking("done".to_owned());
+                        }
+                        Some(Err(e)) => {
+                            debug!("Error: {e}");
+                            let _ = tx.send_blocking("aborted".to_owned());
+                        }
+                        None => {
+                            let _ = tx.send_blocking("aborted".to_owned());
                         }
                     }
-                ));
-                let scan_button_clone = scan_button;
-                let go_button_clone = go_button;
-                let stop_button_clone = stop_button.clone();
-                glib::spawn_future_local(async move {
-                    while let Ok(value) = rx.recv().await {
-                        let s = value.clone();
-                        status.remove_all(context_id);
-                        status.push(context_id, &s);
-                        if s == "aborted" {
-                            scan_button_clone.set_sensitive(true);
-                            go_button_clone.set_sensitive(true);
-                            stop_button_clone.set_sensitive(false);
-                            break;
-                        }
-                        if s == "done" {
-                            scan_button_clone.set_sensitive(true);
-                            go_button_clone.set_sensitive(true);
-                            stop_button_clone.set_sensitive(false);
-                            break;
-                        }
+                }
+            ));
+
+            let scan_btn = scan_button.clone();
+            let go_btn = go_button.clone();
+            let stop_btn = stop_button.clone();
+
+            glib::spawn_future_local(async move {
+                while let Ok(msg) = rx.recv().await {
+                    status.remove_all(context_id);
+                    status.push(context_id, &msg);
+
+                    if msg == "done" || msg == "aborted" {
+                        scan_btn.set_sensitive(true);
+                        go_btn.set_sensitive(true);
+                        stop_btn.set_sensitive(false);
+                        break;
                     }
-                });
-            }
+                }
+            });
         }
     ));
 }

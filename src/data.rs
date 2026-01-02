@@ -48,19 +48,65 @@ pub struct Data {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default, Clone, Copy)]
 pub enum Encoder {
+    #[default]
     MP3,
     OGG,
     FLAC,
     OPUS,
 }
 
-#[derive(Serialize, Deserialize)]
+impl Encoder {
+    pub const OPTIONS: &[&str] = &["mp3", "ogg", "flac", "opus"];
+
+    pub fn from_index(idx: u32) -> Self {
+        match idx {
+            0 => Self::MP3,
+            1 => Self::OGG,
+            2 => Self::FLAC,
+            3 => Self::OPUS,
+            _ => Self::default(),
+        }
+    }
+
+    pub fn to_index(self) -> u32 {
+        match self {
+            Self::MP3 => 0,
+            Self::OGG => 1,
+            Self::FLAC => 2,
+            Self::OPUS => 3,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Copy)]
 pub enum Quality {
     Low,
+    #[default]
     Medium,
     High,
+}
+
+impl Quality {
+    pub const OPTIONS: &[&str] = &["low", "medium", "high"];
+
+    pub fn from_index(idx: u32) -> Self {
+        match idx {
+            0 => Self::Low,
+            1 => Self::Medium,
+            2 => Self::High,
+            _ => Self::default(),
+        }
+    }
+
+    pub fn to_index(self) -> u32 {
+        match self {
+            Self::Low => 0,
+            Self::Medium => 1,
+            Self::High => 2,
+        }
+    }
 }
 #[derive(Serialize, Deserialize)]
 pub struct Config {

@@ -109,7 +109,7 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkTextView" id="disc_artist">
+                      <object class="GtkEntry" id="disc_artist">
                         <property name="hexpand">True</property>
                       </object>
                     </child>
@@ -128,7 +128,7 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkTextView" id="disc_title">
+                      <object class="GtkEntry" id="disc_title">
                         <property name="hexpand">True</property>
                       </object>
                     </child>
@@ -147,7 +147,7 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkTextView" id="year">
+                      <object class="GtkEntry" id="year">
                         <property name="width_request">100</property>
                       </object>
                     </child>
@@ -159,7 +159,7 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkTextView" id="genre">
+                      <object class="GtkEntry" id="genre">
                         <property name="hexpand">True</property>
                       </object>
                     </child>
