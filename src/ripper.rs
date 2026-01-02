@@ -412,7 +412,10 @@ mod test {
 
     #[test]
     fn sanitize_path_component_replaces_special_chars() {
-        assert_eq!(sanitize_path_component("Song: The <Best>?"), "Song_ The _Best__");
+        assert_eq!(
+            sanitize_path_component("Song: The <Best>?"),
+            "Song_ The _Best__"
+        );
     }
 
     #[test]
