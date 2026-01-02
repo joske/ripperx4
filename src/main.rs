@@ -2,6 +2,8 @@ use data::Config;
 use gtk::{Application, gio::resources_register_include, prelude::*};
 use log::warn;
 
+use crate::util::write_config;
+
 mod data;
 mod musicbrainz;
 mod ripper;
@@ -25,11 +27,9 @@ pub fn main() {
     }
 
     // Ensure config file exists
-    if confy::load::<Config>("ripperx4", None).is_err() {
+    if confy::load::<Config>("ripperx4", Some("ripperx4")).is_err() {
         let config = Config::default();
-        if let Err(e) = confy::store("ripperx4", None, config) {
-            warn!("Failed to create config: {e}");
-        }
+        write_config(&config);
     }
 
     let app = Application::builder()

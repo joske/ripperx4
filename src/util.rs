@@ -3,8 +3,18 @@ use log::{debug, warn};
 
 use crate::data::{Config, Disc};
 
+pub(crate) fn read_config() -> Config {
+    confy::load("ripperx4", Some("ripperx4")).unwrap_or_default()
+}
+
+pub(crate) fn write_config(config: &Config) {
+    if let Err(e) = confy::store("ripperx4", Some("ripperx4"), config) {
+        warn!("Failed to save config: {e}");
+    }
+}
+
 pub fn scan_disc() -> Result<DiscId, DiscError> {
-    let config: Config = confy::load("ripperx4", None).unwrap_or_default();
+    let config: Config = read_config();
     debug!("fake_cdrom={}", config.fake_cdrom);
 
     DiscId::read(Some(&DiscId::default_device())).or_else(|e| {

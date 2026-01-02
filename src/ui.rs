@@ -1,9 +1,9 @@
 use crate::{
     data::{Config, Data, Encoder, Quality},
     ripper::extract,
-    util::{lookup_disc, scan_disc},
+    util::{lookup_disc, read_config, scan_disc, write_config},
 };
-use glib::{prelude::IsA, Type};
+use glib::{Type, prelude::IsA};
 use gtk::{
     Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog, DropDown,
     Entry, Frame, ListStore, MessageDialog, MessageType, Orientation, Picture, Separator,
@@ -112,7 +112,7 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
     let window = window.clone();
 
     config_button.connect_clicked(move |_| {
-        let cfg: Config = confy::load("ripperx4", None).unwrap_or_default();
+        let cfg: Config = read_config();
         let config = Arc::new(RwLock::new(cfg));
 
         let child = Box::builder()
@@ -209,9 +209,7 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
                     cfg.encode_path = path_entry.text().to_string();
                     cfg.encoder = Encoder::from_index(encoder_combo.selected());
                     cfg.quality = Quality::from_index(quality_combo.selected());
-                    if let Err(e) = confy::store("ripperx4", None, &*cfg) {
-                        warn!("Failed to save config: {e}");
-                    }
+                    write_config(&cfg);
                 }
                 dialog.close();
             }
@@ -488,10 +486,11 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
                 #[weak]
                 data,
                 move || {
-                    let result = data
-                        .read()
-                        .ok()
-                        .and_then(|d| d.disc.as_ref().map(|disc| extract(disc, &tx, &ripping_clone)));
+                    let result = data.read().ok().and_then(|d| {
+                        d.disc
+                            .as_ref()
+                            .map(|disc| extract(disc, &tx, &ripping_clone))
+                    });
 
                     match result {
                         Some(Ok(())) => {

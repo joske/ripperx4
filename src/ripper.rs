@@ -1,4 +1,7 @@
-use crate::data::{Config, Disc, Encoder, Track};
+use crate::{
+    data::{Config, Disc, Encoder, Track},
+    util::read_config,
+};
 use anyhow::{Result, anyhow};
 use async_channel::Sender;
 use glib::ControlFlow;
@@ -61,7 +64,9 @@ fn extract_track(
         working.clone(),
     );
 
-    let bus = pipeline.bus().ok_or_else(|| anyhow!("Pipeline has no bus"))?;
+    let bus = pipeline
+        .bus()
+        .ok_or_else(|| anyhow!("Pipeline has no bus"))?;
     let status_clone = status.clone();
 
     let _guard = bus.add_watch(move |_, msg| {
@@ -110,8 +115,7 @@ fn start_progress_updates(
     working: Arc<RwLock<bool>>,
 ) {
     glib::timeout_add(std::time::Duration::from_millis(1000), move || {
-        let should_continue = is_ripping(&ripping)
-            && working.read().map(|w| *w).unwrap_or(false);
+        let should_continue = is_ripping(&ripping) && working.read().map(|w| *w).unwrap_or(false);
 
         if !should_continue {
             return ControlFlow::Break;
@@ -131,8 +135,12 @@ fn calculate_progress(pipeline: &Pipeline) -> f64 {
     let zero = GenericFormattedValue::Percent(Some(Percent::from_percent(0)));
     let one = GenericFormattedValue::Percent(Some(Percent::from_percent(1)));
 
-    let pos = pipeline.query_position_generic(Format::Percent).unwrap_or(zero);
-    let dur = pipeline.query_duration_generic(Format::Percent).unwrap_or(one);
+    let pos = pipeline
+        .query_position_generic(Format::Percent)
+        .unwrap_or(zero);
+    let dur = pipeline
+        .query_duration_generic(Format::Percent)
+        .unwrap_or(one);
 
     if dur.value() == 0 {
         0.0
@@ -143,7 +151,7 @@ fn calculate_progress(pipeline: &Pipeline) -> f64 {
 
 /// Create a `GStreamer` pipeline for encoding a track
 fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
-    let config: Config = confy::load("ripperx4", None)?;
+    let config: Config = read_config();
 
     let extractor = create_cd_source(track.number)?;
     let tags = build_tags(track, disc)?;
@@ -173,13 +181,18 @@ fn create_cd_source(track_number: u32) -> Result<Element> {
 /// Build the tag list for the track
 fn build_tags(track: &Track, disc: &Disc) -> Result<TagList> {
     let mut tags = TagList::new();
-    let tags_mut = tags.get_mut().ok_or_else(|| anyhow!("Cannot get mutable tags"))?;
+    let tags_mut = tags
+        .get_mut()
+        .ok_or_else(|| anyhow!("Cannot get mutable tags"))?;
 
     tags_mut.add::<Title>(&track.title.as_str(), TagMergeMode::ReplaceAll);
     tags_mut.add::<Artist>(&track.artist.as_str(), TagMergeMode::ReplaceAll);
     tags_mut.add::<TrackNumber>(&track.number, TagMergeMode::ReplaceAll);
     tags_mut.add::<Album>(&disc.title.as_str(), TagMergeMode::ReplaceAll);
-    tags_mut.add::<Duration>(&(ClockTime::SECOND * track.duration), TagMergeMode::ReplaceAll);
+    tags_mut.add::<Duration>(
+        &(ClockTime::SECOND * track.duration),
+        TagMergeMode::ReplaceAll,
+    );
 
     if let Some(year) = disc.year {
         let date = glib::Date::from_dmy(1, glib::DateMonth::January, year)?;
@@ -298,7 +311,10 @@ fn build_opus_pipeline(
 
     let muxer = ElementFactory::make("oggmux").build()?;
 
-    link_pipeline(pipeline, &[&source, &convert, &resample, &encoder, &muxer, &sink])
+    link_pipeline(
+        pipeline,
+        &[&source, &convert, &resample, &encoder, &muxer, &sink],
+    )
 }
 
 #[cfg(test)]
@@ -308,7 +324,7 @@ mod test {
     use serial_test::serial;
     use std::{
         env,
-        fs::{remove_file, File},
+        fs::{File, remove_file},
         io::Read,
         path::Path,
         sync::{Arc, RwLock},
@@ -330,7 +346,7 @@ mod test {
 
         let detected = match &header {
             // MP3: ID3 tag or frame sync
-            [0x49, 0x44, 0x33, ..] => FileType::Mp3,        // ID3v2
+            [0x49, 0x44, 0x33, ..] => FileType::Mp3, // ID3v2
             [0xff, 0xfb, ..] | [0xff, 0xfa, ..] => FileType::Mp3, // Frame sync
             // FLAC: "fLaC"
             [0x66, 0x4c, 0x61, 0x43, ..] => FileType::Flac,
