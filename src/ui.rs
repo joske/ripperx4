@@ -101,7 +101,7 @@ pub fn build(app: &Application) {
     handle_disc(data.clone(), &builder);
     handle_scan(data.clone(), &builder, &window);
     handle_config(&builder, &window);
-    handle_stop(ripping.clone(), &builder);
+    handle_stop(ripping.clone(), data.clone(), &builder);
     handle_go(ripping, data, &builder);
 }
 
@@ -232,6 +232,12 @@ fn handle_disc(data: Arc<RwLock<Data>>, builder: &Builder) {
     let Some(artist_entry) = get_widget::<Entry>(builder, "disc_artist") else {
         return;
     };
+    let Some(year_entry) = get_widget::<Entry>(builder, "year") else {
+        return;
+    };
+    let Some(genre_entry) = get_widget::<Entry>(builder, "genre") else {
+        return;
+    };
 
     let data_title = data.clone();
     title_entry.connect_changed(move |entry| {
@@ -242,16 +248,35 @@ fn handle_disc(data: Arc<RwLock<Data>>, builder: &Builder) {
         }
     });
 
+    let data_artist = data.clone();
     artist_entry.connect_changed(move |entry| {
-        if let Ok(mut data) = data.write()
+        if let Ok(mut data) = data_artist.write()
             && let Some(disc) = data.disc.as_mut()
         {
             disc.artist = entry.text().to_string();
         }
     });
+
+    let data_year = data.clone();
+    year_entry.connect_changed(move |entry| {
+        if let Ok(mut data) = data_year.write()
+            && let Some(disc) = data.disc.as_mut()
+        {
+            disc.year = entry.text().parse::<u16>().ok();
+        }
+    });
+
+    genre_entry.connect_changed(move |entry| {
+        if let Ok(mut data) = data.write()
+            && let Some(disc) = data.disc.as_mut()
+        {
+            let text = entry.text().to_string();
+            disc.genre = if text.is_empty() { None } else { Some(text) };
+        }
+    });
 }
 
-fn handle_stop(ripping: Arc<RwLock<bool>>, builder: &Builder) {
+fn handle_stop(ripping: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &Builder) {
     let Some(buttons) = ButtonGroup::from_builder(builder) else {
         return;
     };
@@ -261,7 +286,8 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, builder: &Builder) {
         debug!("stop");
         if let Ok(mut r) = ripping.write() {
             *r = false;
-            buttons.set_idle(true);
+            let has_disc = data.read().ok().map(|d| d.disc.is_some()).unwrap_or(false);
+            buttons.set_idle(has_disc);
         }
     });
 }
