@@ -93,7 +93,9 @@ mod test {
     use super::lookup;
     use anyhow::Result;
 
+    // these tests require network access to MusicBrainz, so ignore them by default
     #[test]
+    #[ignore]
     fn test_good_net() -> Result<()> {
         let disc = lookup("xA3p59dQpJpDXZYHz1SSQ491oaU-")?;
         assert_eq!("Dire Straits", disc.artist);
@@ -106,6 +108,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_bad_discid() {
         let result = lookup("invalid-disc-id");
         assert!(result.is_err());

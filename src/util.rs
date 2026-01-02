@@ -66,6 +66,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_lookup_disc_dire_straits() {
         let disc = lookup_disc(&fake_discid());
         assert_eq!(disc.tracks.len(), 12);
@@ -73,6 +74,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_lookup_disc_bad_discid() {
         let disc = lookup_disc(&bad_discid());
         assert_eq!(disc.tracks.len(), 2);
