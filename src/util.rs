@@ -1,44 +1,49 @@
 use discid::{DiscError, DiscId};
-use log::debug;
+use log::{debug, warn};
 
 use crate::data::{Config, Disc};
 
 pub fn scan_disc() -> Result<DiscId, DiscError> {
-    let config: Config = confy::load("ripperx4", None).expect("failed to load config");
-    debug!("fake={}", config.fake_cdrom);
-    match DiscId::read(Some(&DiscId::default_device())) {
-        Ok(discid) => Ok(discid),
-        Err(e) => {
-            if config.fake_cdrom {
-                debug!("fake_cdrom is set, using hardcoded offsets");
-                // for testing on machine without CDROM drive: hardcode offsets of a dire straits disc
-                Ok(fake_discid())
-            } else {
-                Err(e)
-            }
+    let config: Config = confy::load("ripperx4", None).unwrap_or_default();
+    debug!("fake_cdrom={}", config.fake_cdrom);
+
+    DiscId::read(Some(&DiscId::default_device())).or_else(|e| {
+        if config.fake_cdrom {
+            debug!("CD read failed, using fake disc for testing");
+            Ok(fake_discid())
+        } else {
+            Err(e)
         }
-    }
+    })
 }
 
 #[allow(clippy::cast_sign_loss)]
 pub fn lookup_disc(discid: &DiscId) -> Disc {
-    debug!("id={}", discid.id());
-    if let Ok(disc) = crate::musicbrainz::lookup(&discid.id()) {
-        disc
-    } else {
-        let last = discid.last_track_num() as u32;
-        let first = discid.first_track_num() as u32;
-        let num: u32 = last.saturating_sub(first) + 1;
-        Disc::with_tracks(num)
+    let id = discid.id();
+    debug!("Looking up disc id={id}");
+
+    match crate::musicbrainz::lookup(&id) {
+        Ok(disc) => {
+            debug!("Found: {} - {}", disc.artist, disc.title);
+            disc
+        }
+        Err(e) => {
+            warn!("MusicBrainz lookup failed: {e}");
+            let first = discid.first_track_num() as u32;
+            let last = discid.last_track_num() as u32;
+            let track_count = last.saturating_sub(first) + 1;
+            Disc::with_tracks(track_count)
+        }
     }
 }
 
 fn fake_discid() -> DiscId {
+    // Dire Straits - Money for Nothing (for testing without CD drive)
     let offsets = [
         298_948, 183, 26155, 44233, 64778, 80595, 117_410, 144_120, 159_913, 178_520, 204_803,
         258_763, 277_218,
     ];
-    DiscId::put(1, &offsets).unwrap() // this is for testing only so this unwrap is ok
+    DiscId::put(1, &offsets).expect("hardcoded offsets should be valid")
 }
 
 #[cfg(test)]
@@ -47,7 +52,7 @@ mod test {
 
     fn bad_discid() -> DiscId {
         let offsets = [450, 150, 300];
-        DiscId::put(1, &offsets).unwrap() // this is for testing only so this unwrap is ok
+        DiscId::put(1, &offsets).expect("test offsets should be valid")
     }
 
     #[test]
