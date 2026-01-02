@@ -58,6 +58,8 @@ fn fake_discid() -> DiscId {
 
 #[cfg(test)]
 mod test {
+    use serial_test::serial;
+
     use super::*;
     use crate::data::{Encoder, Quality};
 
@@ -67,6 +69,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     #[ignore = "these tests require network access to MusicBrainz, so ignore them by default"]
     fn test_lookup_disc_dire_straits() {
         let disc = lookup_disc(&fake_discid());
@@ -75,6 +78,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     #[ignore = "these tests require network access to MusicBrainz, so ignore them by default"]
     fn test_lookup_disc_bad_discid() {
         let disc = lookup_disc(&bad_discid());

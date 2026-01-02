@@ -92,8 +92,10 @@ fn extract_tracks(release: &Release) -> Vec<Track> {
 mod test {
     use super::lookup;
     use anyhow::Result;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     #[ignore = "these tests require network access to MusicBrainz, so ignore them by default"]
     fn test_good_net() -> Result<()> {
         let disc = lookup("xA3p59dQpJpDXZYHz1SSQ491oaU-")?;
@@ -107,6 +109,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     #[ignore = "these tests require network access to MusicBrainz, so ignore them by default"]
     fn test_bad_discid() {
         let result = lookup("invalid-disc-id");
