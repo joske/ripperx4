@@ -185,7 +185,7 @@ mod test {
         assert_eq!(disc.tracks.len(), 3);
 
         for (idx, track) in disc.tracks.iter().enumerate() {
-            let number = (idx as u32) + 1;
+            let number = u32::try_from(idx + 1).unwrap();
             assert_eq!(track.number, number);
             assert_eq!(track.title, "Unknown");
             assert_eq!(track.artist, "Unknown");
@@ -219,6 +219,7 @@ mod test {
             (Quality::Medium, 1, 5.0, 0.5, "5", 128_000),
             (Quality::High, 2, 0.0, 0.9, "8", 256_000),
         ];
+        #[allow(clippy::float_cmp)]
         for (quality, idx, mp3_q, vorbis_q, flac_lvl, opus_br) in cases {
             assert_eq!(Quality::from_index(idx), quality);
             assert_eq!(quality.to_index(), idx);
@@ -278,8 +279,14 @@ mod test {
         let encoders = [Encoder::MP3, Encoder::OGG, Encoder::FLAC, Encoder::OPUS];
         for encoder in encoders {
             let ext = encoder.file_extension();
-            assert!(!ext.is_empty(), "Extension for {encoder:?} should not be empty");
-            assert!(ext.starts_with('.'), "Extension for {encoder:?} should start with '.'");
+            assert!(
+                !ext.is_empty(),
+                "Extension for {encoder:?} should not be empty"
+            );
+            assert!(
+                ext.starts_with('.'),
+                "Extension for {encoder:?} should start with '.'"
+            );
         }
     }
 
@@ -306,7 +313,10 @@ mod test {
         // LAME quality is 0-9 where 0=best, 9=worst
         for quality in [Quality::Low, Quality::Medium, Quality::High] {
             let val = quality.mp3_quality();
-            assert!((0.0..=9.0).contains(&val), "MP3 quality {val} out of range for {quality:?}");
+            assert!(
+                (0.0..=9.0).contains(&val),
+                "MP3 quality {val} out of range for {quality:?}"
+            );
         }
     }
 
@@ -315,7 +325,10 @@ mod test {
         // Vorbis quality is 0.0-1.0
         for quality in [Quality::Low, Quality::Medium, Quality::High] {
             let val = quality.vorbis_quality();
-            assert!((0.0..=1.0).contains(&val), "Vorbis quality {val} out of range for {quality:?}");
+            assert!(
+                (0.0..=1.0).contains(&val),
+                "Vorbis quality {val} out of range for {quality:?}"
+            );
         }
     }
 
@@ -323,8 +336,14 @@ mod test {
     fn quality_flac_levels_are_valid() {
         // FLAC compression level is 0-8
         for quality in [Quality::Low, Quality::Medium, Quality::High] {
-            let level: u32 = quality.flac_level().parse().expect("FLAC level should be numeric");
-            assert!((0..=8).contains(&level), "FLAC level {level} out of range for {quality:?}");
+            let level: u32 = quality
+                .flac_level()
+                .parse()
+                .expect("FLAC level should be numeric");
+            assert!(
+                (0..=8).contains(&level),
+                "FLAC level {level} out of range for {quality:?}"
+            );
         }
     }
 
@@ -333,9 +352,18 @@ mod test {
         // Opus bitrate should be positive and reasonable (32k-512k typical range)
         for quality in [Quality::Low, Quality::Medium, Quality::High] {
             let bitrate = quality.opus_bitrate();
-            assert!(bitrate > 0, "Opus bitrate should be positive for {quality:?}");
-            assert!(bitrate >= 32_000, "Opus bitrate {bitrate} too low for {quality:?}");
-            assert!(bitrate <= 512_000, "Opus bitrate {bitrate} too high for {quality:?}");
+            assert!(
+                bitrate > 0,
+                "Opus bitrate should be positive for {quality:?}"
+            );
+            assert!(
+                bitrate >= 32_000,
+                "Opus bitrate {bitrate} too low for {quality:?}"
+            );
+            assert!(
+                bitrate <= 512_000,
+                "Opus bitrate {bitrate} too high for {quality:?}"
+            );
         }
     }
 
