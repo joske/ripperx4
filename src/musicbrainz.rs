@@ -3,8 +3,7 @@ use anyhow::{Result, anyhow};
 use log::debug;
 use musicbrainz_rs::{
     Fetch,
-    entity::discid::Discid as MBDiscid,
-    entity::release::Release,
+    entity::{discid::Discid as MBDiscid, release::Release},
 };
 
 /// Lookup a disc by discid on `MusicBrainz`
@@ -45,7 +44,12 @@ pub fn lookup(discid: &str) -> Result<Disc> {
         ..Default::default()
     };
 
-    debug!("Parsed: {} - {} ({} tracks)", disc.artist, disc.title, disc.tracks.len());
+    debug!(
+        "Parsed: {} - {} ({} tracks)",
+        disc.artist,
+        disc.title,
+        disc.tracks.len()
+    );
     Ok(disc)
 }
 
