@@ -78,6 +78,14 @@ impl Encoder {
             Self::OPUS => 3,
         }
     }
+
+    pub fn file_extension(self) -> &'static str {
+        match self {
+            Self::MP3 => ".mp3",
+            Self::FLAC => ".flac",
+            Self::OGG | Self::OPUS => ".ogg",
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Copy)]
@@ -105,6 +113,42 @@ impl Quality {
             Self::Low => 0,
             Self::Medium => 1,
             Self::High => 2,
+        }
+    }
+
+    /// LAME MP3 encoder quality (0=best, 9=worst)
+    pub fn mp3_quality(self) -> f32 {
+        match self {
+            Self::Low => 9.0,
+            Self::Medium => 5.0,
+            Self::High => 0.0,
+        }
+    }
+
+    /// Vorbis encoder quality (0.0-1.0)
+    pub fn vorbis_quality(self) -> f32 {
+        match self {
+            Self::Low => 0.2,
+            Self::Medium => 0.5,
+            Self::High => 0.9,
+        }
+    }
+
+    /// FLAC compression level (0-8, higher = more compression)
+    pub fn flac_level(self) -> &'static str {
+        match self {
+            Self::Low => "2",
+            Self::Medium => "5",
+            Self::High => "8",
+        }
+    }
+
+    /// Opus bitrate in bits/second
+    pub fn opus_bitrate(self) -> i32 {
+        match self {
+            Self::Low => 64_000,
+            Self::Medium => 128_000,
+            Self::High => 256_000,
         }
     }
 }

@@ -1,6 +1,6 @@
-use confy::ConfyError;
 use data::Config;
 use gtk::{Application, gio::resources_register_include, prelude::*};
+use log::warn;
 
 mod data;
 mod musicbrainz;
@@ -16,13 +16,20 @@ pub fn main() {
         simplelog::ColorChoice::Auto,
     )
     .expect("Failed to initialize logger.");
+
     resources_register_include!("ripperx4.gresource").expect("Failed to register resources.");
 
-    let cfg: Result<Config, ConfyError> = confy::load("ripperx4", None);
-    if cfg.is_err() {
-        // make sure config exists
+    // Initialize GStreamer once at startup
+    if let Err(e) = gstreamer::init() {
+        warn!("Failed to initialize GStreamer: {e}");
+    }
+
+    // Ensure config file exists
+    if confy::load::<Config>("ripperx4", None).is_err() {
         let config = Config::default();
-        confy::store("ripperx4", None, config).expect("failed to create config");
+        if let Err(e) = confy::store("ripperx4", None, config) {
+            warn!("Failed to create config: {e}");
+        }
     }
 
     let app = Application::builder()
