@@ -10,14 +10,18 @@ mod ripper;
 mod ui;
 mod util;
 
-pub fn main() {
+/// Application entry point
+/// Initializes logging, resources, `GStreamer`, configuration, and starts the GTK application
+/// Returns `Ok(())` on success or an error boxed trait object on failure
+/// # Errors
+/// Returns an error if logging or resource registration fails
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     simplelog::TermLogger::init(
         simplelog::LevelFilter::Debug,
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Auto,
-    )
-    .expect("Failed to initialize logger.");
+    )?;
 
     resources_register_include!("ripperx4.gresource").expect("Failed to register resources.");
 
@@ -37,4 +41,5 @@ pub fn main() {
         .build();
     app.connect_activate(ui::build);
     app.run();
+    Ok(())
 }

@@ -286,7 +286,7 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &Bu
         debug!("stop");
         if let Ok(mut r) = ripping.write() {
             *r = false;
-            let has_disc = data.read().ok().map(|d| d.disc.is_some()).unwrap_or(false);
+            let has_disc = data.read().ok().is_some_and(|d| d.disc.is_some());
             buttons.set_idle(has_disc);
         }
     });

@@ -376,15 +376,14 @@ mod test {
     }
 
     /// Verify file type by checking magic bytes
-    fn verify_file_type(path: &str, expected: FileType) -> Result<()> {
+    fn verify_file_type(path: &str, expected: &FileType) -> Result<()> {
         let mut file = File::open(path)?;
         let mut header = [0u8; 12];
         file.read_exact(&mut header)?;
 
         let detected = match &header {
             // MP3: ID3 tag or frame sync
-            [0x49, 0x44, 0x33, ..] => FileType::Mp3, // ID3v2
-            [0xff, 0xfb, ..] | [0xff, 0xfa, ..] => FileType::Mp3, // Frame sync
+            [0x49, 0x44, 0x33, ..] | [0xff, 0xfb | 0xfa, ..] => FileType::Mp3, // ID3v2 || Frame sync
             // FLAC: "fLaC"
             [0x66, 0x4c, 0x61, 0x43, ..] => FileType::Flac,
             // OGG: "OggS"
@@ -392,10 +391,10 @@ mod test {
             _ => return Err(anyhow!("Unknown file type: {:02x?}", &header[..4])),
         };
 
-        if detected == expected {
+        if &detected == expected {
             Ok(())
         } else {
-            Err(anyhow!("Expected {:?}, got {:?}", expected, detected))
+            Err(anyhow!("Expected {expected:?}, got {detected:?}"))
         }
     }
 
@@ -457,7 +456,7 @@ mod test {
 
         assert!(Path::new(dest).exists());
         assert!(Path::new(dest).is_file());
-        verify_file_type(dest, FileType::Mp3)?;
+        verify_file_type(dest, &FileType::Mp3)?;
         remove_file(dest)?;
         Ok(())
     }
@@ -487,7 +486,7 @@ mod test {
 
         assert!(Path::new(dest).exists());
         assert!(Path::new(dest).is_file());
-        verify_file_type(dest, FileType::Flac)?;
+        verify_file_type(dest, &FileType::Flac)?;
         remove_file(dest)?;
         Ok(())
     }
@@ -519,7 +518,7 @@ mod test {
 
         assert!(Path::new(dest).exists());
         assert!(Path::new(dest).is_file());
-        verify_file_type(dest, FileType::Ogg)?;
+        verify_file_type(dest, &FileType::Ogg)?;
         remove_file(dest)?;
         Ok(())
     }
@@ -551,7 +550,7 @@ mod test {
 
         assert!(Path::new(dest).exists());
         assert!(Path::new(dest).is_file());
-        verify_file_type(dest, FileType::Ogg)?;
+        verify_file_type(dest, &FileType::Ogg)?;
         remove_file(dest)?;
         Ok(())
     }

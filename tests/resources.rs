@@ -11,9 +11,7 @@ fn load_image_resources() {
         "/images/cddb.png",
         "/images/scan.png",
         "/images/config.png",
-    ]
-    .into_iter()
-    {
+    ] {
         let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
             .unwrap_or_else(|err| panic!("failed to read {path}: {err}"));
         assert!(
