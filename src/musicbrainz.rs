@@ -70,7 +70,7 @@ fn extract_tracks(release: &Release) -> Vec<Track> {
                 .map(|c| c.artist.name.clone())
                 .unwrap_or_default();
 
-            let duration = track.length.map(|l| u64::from(l / 1000)).unwrap_or(0);
+            let duration = track.length.map_or(0, |l| u64::from(l / 1000));
 
             Track {
                 number: track.position,

@@ -77,7 +77,7 @@ fn extract_track(
                 set_working(&working, false);
                 error!(
                     "GStreamer error from {:?}: {} ({:?})",
-                    err.src().map(|s| s.path_string()),
+                    err.src().map(GstObjectExt::path_string),
                     err.error(),
                     err.debug()
                 );
@@ -126,6 +126,7 @@ fn start_progress_updates(
 }
 
 /// Calculate pipeline progress as percentage
+#[allow(clippy::cast_precision_loss)]
 fn calculate_progress(pipeline: &Pipeline) -> f64 {
     let zero = GenericFormattedValue::Percent(Some(Percent::from_percent(0)));
     let one = GenericFormattedValue::Percent(Some(Percent::from_percent(1)));
@@ -140,7 +141,7 @@ fn calculate_progress(pipeline: &Pipeline) -> f64 {
     }
 }
 
-/// Create a GStreamer pipeline for encoding a track
+/// Create a `GStreamer` pipeline for encoding a track
 fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
     let config: Config = confy::load("ripperx4", None)?;
 
@@ -215,7 +216,7 @@ fn create_file_sink(location: &str) -> Result<Element> {
     Ok(sink)
 }
 
-/// Apply tags to an element that implements TagSetter
+/// Apply tags to an element that implements `TagSetter`
 fn apply_tags(element: &Element, tags: &TagList) -> Result<()> {
     let tagsetter = element
         .dynamic_cast_ref::<TagSetter>()
@@ -231,6 +232,7 @@ fn link_pipeline(pipeline: &Pipeline, elements: &[&Element]) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::needless_pass_by_value)] // Elements are consumed by pipeline
 fn build_mp3_pipeline(
     pipeline: &Pipeline,
     source: Element,
@@ -247,6 +249,7 @@ fn build_mp3_pipeline(
     link_pipeline(pipeline, &[&source, &encoder, &muxer, &sink])
 }
 
+#[allow(clippy::needless_pass_by_value)] // Elements are consumed by pipeline
 fn build_ogg_pipeline(
     pipeline: &Pipeline,
     source: Element,
@@ -264,6 +267,7 @@ fn build_ogg_pipeline(
     link_pipeline(pipeline, &[&source, &convert, &encoder, &muxer, &sink])
 }
 
+#[allow(clippy::needless_pass_by_value)] // Elements are consumed by pipeline
 fn build_flac_pipeline(
     pipeline: &Pipeline,
     source: Element,
@@ -278,6 +282,7 @@ fn build_flac_pipeline(
     link_pipeline(pipeline, &[&source, &encoder, &sink])
 }
 
+#[allow(clippy::needless_pass_by_value)] // Elements are consumed by pipeline
 fn build_opus_pipeline(
     pipeline: &Pipeline,
     source: Element,

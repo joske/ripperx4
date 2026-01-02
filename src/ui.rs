@@ -237,18 +237,18 @@ fn handle_disc(data: Arc<RwLock<Data>>, builder: &Builder) {
 
     let data_title = data.clone();
     title_entry.connect_changed(move |entry| {
-        if let Ok(mut data) = data_title.write() {
-            if let Some(disc) = data.disc.as_mut() {
-                disc.title = entry.text().to_string();
-            }
+        if let Ok(mut data) = data_title.write()
+            && let Some(disc) = data.disc.as_mut()
+        {
+            disc.title = entry.text().to_string();
         }
     });
 
     artist_entry.connect_changed(move |entry| {
-        if let Ok(mut data) = data.write() {
-            if let Some(disc) = data.disc.as_mut() {
-                disc.artist = entry.text().to_string();
-            }
+        if let Ok(mut data) = data.write()
+            && let Some(disc) = data.disc.as_mut()
+        {
+            disc.artist = entry.text().to_string();
         }
     });
 }
@@ -268,6 +268,7 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, builder: &Builder) {
     });
 }
 
+#[allow(clippy::too_many_lines)] // GTK handler with multiple widget setups
 fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationWindow) {
     let window = window.clone();
 
@@ -313,14 +314,12 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
             let new = !old;
             model.set_value(&iter, 0, &new.to_value());
 
-            if let Ok(mut d) = data.write() {
-                if let Some(disc) = d.disc.as_mut() {
-                    if let Ok(num) = model.get_value(&iter, 1).get::<u32>() {
-                        if let Some(track) = disc.tracks.get_mut(num as usize - 1) {
-                            track.rip = new;
-                        }
-                    }
-                }
+            if let Ok(mut d) = data.write()
+                && let Some(disc) = d.disc.as_mut()
+                && let Ok(num) = model.get_value(&iter, 1).get::<u32>()
+                && let Some(track) = disc.tracks.get_mut(num as usize - 1)
+            {
+                track.rip = new;
             }
         });
     }
@@ -349,14 +348,12 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
             };
             model.set_value(&iter, 2, &new_text.to_value());
 
-            if let Ok(mut d) = data.write() {
-                if let Some(disc) = d.disc.as_mut() {
-                    if let Ok(num) = model.get_value(&iter, 1).get::<u32>() {
-                        if let Some(track) = disc.tracks.get_mut(num as usize - 1) {
-                            track.title = new_text.to_string();
-                        }
-                    }
-                }
+            if let Ok(mut d) = data.write()
+                && let Some(disc) = d.disc.as_mut()
+                && let Ok(num) = model.get_value(&iter, 1).get::<u32>()
+                && let Some(track) = disc.tracks.get_mut(num as usize - 1)
+            {
+                track.title = new_text.to_string();
             }
         });
     }
@@ -378,14 +375,12 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
             };
             model.set_value(&iter, 3, &new_text.to_value());
 
-            if let Ok(mut d) = data.write() {
-                if let Some(disc) = d.disc.as_mut() {
-                    if let Ok(num) = model.get_value(&iter, 1).get::<u32>() {
-                        if let Some(track) = disc.tracks.get_mut(num as usize - 1) {
-                            track.artist = new_text.to_string();
-                        }
-                    }
-                }
+            if let Ok(mut d) = data.write()
+                && let Some(disc) = d.disc.as_mut()
+                && let Ok(num) = model.get_value(&iter, 1).get::<u32>()
+                && let Some(track) = disc.tracks.get_mut(num as usize - 1)
+            {
+                track.artist = new_text.to_string();
             }
         });
     }
@@ -411,28 +406,25 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
                 year_entry.set_text(&disc.year.map_or(String::new(), |y| y.to_string()));
                 genre_entry.set_text(disc.genre.as_deref().unwrap_or(""));
 
-                let track_count = disc.tracks.len();
-
                 if let Ok(mut d) = data.write() {
                     d.disc = Some(disc);
                 }
 
                 store.clear();
-                if let Ok(d) = data.read() {
-                    if let Some(disc) = &d.disc {
-                        for i in 0..track_count {
-                            let track = &disc.tracks[i];
-                            let iter = store.append();
-                            store.set(
-                                &iter,
-                                &[
-                                    (0, &true),
-                                    (1, &track.number),
-                                    (2, &track.title),
-                                    (3, &track.artist),
-                                ],
-                            );
-                        }
+                if let Ok(d) = data.read()
+                    && let Some(disc) = &d.disc
+                {
+                    for track in &disc.tracks {
+                        let iter = store.append();
+                        store.set(
+                            &iter,
+                            &[
+                                (0, &true),
+                                (1, &track.number),
+                                (2, &track.title),
+                                (3, &track.artist),
+                            ],
+                        );
                     }
                 }
                 go_button.set_sensitive(true);
