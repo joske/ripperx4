@@ -14,7 +14,7 @@ arch = ["x86_64", "aarch64"]
 anyhow = "1.0"
 async-channel = "2.1"
 confy = "2.0"
-discid = "0.5"
+discid = "0.7"
 glib = "0.21"
 gstreamer = "0.24"
 gtk = { package = "gtk4", version = "0.10", features = ["v4_8"] }
