@@ -14,7 +14,7 @@ jobs:
       - name: Set up Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Install glib/gtk dev
-        run: sudo apt-get install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev gstreamer1.0-plugins-good libdiscid-dev
+        run: sudo apt update && sudo apt install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev gstreamer1.0-plugins-good libdiscid-dev
       - name: check cargo fmt
         run: cargo fmt --all -- --check
       - name: check clippy
