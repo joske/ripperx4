@@ -1,88 +1,132 @@
 use crate::data::{Disc, Track};
 use anyhow::{Result, anyhow};
+use log::debug;
 use minidom::Element;
+use std::{thread, time::Duration};
 
-macro_rules! get_child {
-    ($parent:ident, $child:literal) => {
-        $parent.get_child($child, "http://musicbrainz.org/ns/mmd-2.0#")
-    };
-    ($parent:ident, $child:literal, $err:literal) => {
-        get_child!($parent, $child).ok_or(anyhow!($err))
-    };
+const NS: &str = "http://musicbrainz.org/ns/mmd-2.0#";
+const USER_AGENT: &str = "ripperX4/0.1.0 (https://github.com/sourcery/ripperx4)";
+const RATE_LIMIT_DELAY: Duration = Duration::from_millis(1100); // MusicBrainz requires 1 req/sec
+
+/// Get child element with MusicBrainz namespace
+fn get_child<'a>(parent: &'a Element, name: &str) -> Option<&'a Element> {
+    parent.get_child(name, NS)
 }
 
-macro_rules! get_first_child {
-    ($parent:ident) => {
-        $parent.children().next()
-    };
-    ($parent:ident, $err:literal) => {
-        get_first_child!($parent).ok_or(anyhow!($err))
-    };
-}
-
-/// Lookup a disc by discid on musicbrainz
-/// Returns a `Disc` if a disc was found and parsing metadata succeeds
+/// Lookup a disc by discid on MusicBrainz
+/// Returns a `Disc` if found and parsing succeeds
 pub fn lookup(discid: &str) -> Result<Disc> {
-    let lookup = format!("https://musicbrainz.org/ws/2/discid/{discid}");
-    let body: String = ureq::get(&lookup).call()?.body_mut().read_to_string()?;
-    let release = get_release_url(&body)?;
-    let body: String = ureq::get(&release).call()?.body_mut().read_to_string()?;
+    let lookup_url = format!("https://musicbrainz.org/ws/2/discid/{discid}");
+    debug!("Looking up disc: {lookup_url}");
+
+    let body: String = ureq::get(&lookup_url)
+        .header("User-Agent", USER_AGENT)
+        .call()?
+        .body_mut()
+        .read_to_string()?;
+
+    let release_url = get_release_url(&body)?;
+    debug!("Found release: {release_url}");
+
+    // Rate limit: MusicBrainz requires max 1 request per second
+    thread::sleep(RATE_LIMIT_DELAY);
+
+    let body: String = ureq::get(&release_url)
+        .header("User-Agent", USER_AGENT)
+        .call()?
+        .body_mut()
+        .read_to_string()?;
+
     parse_metadata(&body)
 }
 
-/// Return an URL to a release for the given disc
-/// Parses the XML returned by the query on discid
+/// Extract release URL from disc lookup response
 fn get_release_url(body: &str) -> Result<String> {
     let metadata: Element = body.parse()?;
-    let disc = get_first_child!(metadata, "failed to get disc")?;
-    let release_list = get_child!(disc, "release-list", "failed to get release list")?;
-    let release = get_child!(release_list, "release", "failed to get release")?;
+    let disc = metadata
+        .children()
+        .next()
+        .ok_or_else(|| anyhow!("No disc element in response"))?;
+
+    let release_list = get_child(disc, "release-list")
+        .ok_or_else(|| anyhow!("No release-list in disc"))?;
+
+    let release = get_child(release_list, "release")
+        .ok_or_else(|| anyhow!("No release in release-list"))?;
+
     let release_id = release
         .attr("id")
-        .ok_or(anyhow!("failed to get release id"))?;
+        .ok_or_else(|| anyhow!("Release has no id attribute"))?;
+
     Ok(format!(
-        "https://musicbrainz.org/ws/2/release/{release_id}?inc=%20recordings+artist-credits"
+        "https://musicbrainz.org/ws/2/release/{release_id}?inc=recordings+artist-credits"
     ))
 }
 
-/// Parse the metadata for the given release
-/// Returns a `Disc` if parsing succeeds
+/// Parse release metadata XML into a Disc
 fn parse_metadata(xml: &str) -> Result<Disc> {
     let metadata: Element = xml.parse()?;
-    let release = get_first_child!(metadata, "failed to get release")?;
+    let release = metadata
+        .children()
+        .next()
+        .ok_or_else(|| anyhow!("No release element in metadata"))?;
+
     let mut disc = Disc::default();
-    if let Some(title) = get_child!(release, "title") {
+
+    if let Some(title) = get_child(release, "title") {
         disc.title = title.text();
     }
 
-    disc.artist = get_artist(release)?;
+    disc.artist = get_artist(release).unwrap_or_default();
 
-    let medium_list = get_child!(release, "medium-list", "failed to get medium list")?;
-    let medium = get_first_child!(medium_list, "failed to get medium")?;
-    let track_list = get_child!(medium, "track-list", "failed to get track list")?;
+    let medium_list = get_child(release, "medium-list")
+        .ok_or_else(|| anyhow!("No medium-list in release"))?;
+
+    let medium = medium_list
+        .children()
+        .next()
+        .ok_or_else(|| anyhow!("No medium in medium-list"))?;
+
+    let track_list = get_child(medium, "track-list")
+        .ok_or_else(|| anyhow!("No track-list in medium"))?;
+
     for (i, track) in track_list.children().enumerate() {
         let mut dtrack = Track::default();
-        let num: Option<u32> = get_child!(track, "number").and_then(|num| num.text().parse().ok());
-        dtrack.number = num.unwrap_or(u32::try_from(i)?);
 
-        if let Some(recording) = get_child!(track, "recording") {
-            if let Some(title) = get_child!(recording, "title") {
+        // Track numbers are 1-based, use index+1 as fallback
+        dtrack.number = get_child(track, "number")
+            .and_then(|n| n.text().parse().ok())
+            .unwrap_or((i + 1) as u32);
+
+        if let Some(recording) = get_child(track, "recording") {
+            if let Some(title) = get_child(recording, "title") {
                 dtrack.title = title.text();
             }
             dtrack.artist = get_artist(recording).unwrap_or_default();
         }
+
         dtrack.rip = true;
         disc.tracks.push(dtrack);
     }
+
     Ok(disc)
 }
 
-/// Parse out the Artist name from a `artist-credit` XML element
+/// Extract artist name from an element with artist-credit child
 fn get_artist(element: &Element) -> Result<String> {
-    let artist_credit = get_child!(element, "artist-credit", "failed to get artist credit")?;
-    let name_credit = get_child!(artist_credit, "name-credit", "failed to get name credit")?;
-    let artist = get_child!(name_credit, "artist", "failed to get artist")?;
-    Ok(get_child!(artist, "name", "failed to get artist name")?.text())
+    let artist_credit = get_child(element, "artist-credit")
+        .ok_or_else(|| anyhow!("No artist-credit element"))?;
+
+    let name_credit = get_child(artist_credit, "name-credit")
+        .ok_or_else(|| anyhow!("No name-credit in artist-credit"))?;
+
+    let artist = get_child(name_credit, "artist")
+        .ok_or_else(|| anyhow!("No artist in name-credit"))?;
+
+    let name = get_child(artist, "name")
+        .ok_or_else(|| anyhow!("No name in artist"))?;
+
+    Ok(name.text())
 }
 
 #[cfg(test)]
@@ -120,47 +164,32 @@ mod test {
     }
 
     #[test]
-    fn parse_metadata_bad_non_xml() -> Result<()> {
-        let e = parse_metadata("brol");
-        assert!(e.is_err());
-        Ok(())
+    fn parse_metadata_bad_non_xml() {
+        let result = parse_metadata("not xml");
+        assert!(result.is_err());
     }
 
     #[test]
-    fn parse_metadata_bad_xml_no_releases() -> Result<()> {
-        let e =
-            parse_metadata(r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#);
-        assert!(e.is_err());
-        Ok(())
+    fn parse_metadata_bad_xml_empty() {
+        let result = parse_metadata(r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#);
+        assert!(result.is_err());
     }
 
     #[test]
-    fn parse_disc_bad_non_xml() -> Result<()> {
-        let e = get_release_url("brol");
-        assert!(e.is_err());
-        Ok(())
+    fn get_release_url_bad_non_xml() {
+        let result = get_release_url("not xml");
+        assert!(result.is_err());
     }
 
     #[test]
-    fn parse_disc_bad_xml_no_discs() -> Result<()> {
-        let e =
-            get_release_url(r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#);
-        assert!(e.is_err());
-        Ok(())
+    fn get_release_url_bad_xml_empty() {
+        let result = get_release_url(r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#);
+        assert!(result.is_err());
     }
 
     #[test]
-    fn parse_disc_bad_xml_discs() -> Result<()> {
-        let e =
-            get_release_url(r#"<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#"></metadata>"#);
-        assert!(e.is_err());
-        Ok(())
-    }
-
-    #[test]
-    fn test_bad_discid() -> Result<()> {
-        let disc = lookup("dees besta zeker ni");
-        assert!(disc.is_err());
-        Ok(())
+    fn test_bad_discid() {
+        let result = lookup("invalid-disc-id");
+        assert!(result.is_err());
     }
 }
