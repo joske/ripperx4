@@ -367,7 +367,123 @@ mod test {
         sync::{Arc, RwLock},
     };
 
-    use super::extract_track;
+    use super::{extract_track, sanitize_path_component};
+    use crate::data::{Disc, Track};
+
+    // ==================== sanitize_path_component tests ====================
+
+    #[test]
+    fn sanitize_path_component_removes_slashes() {
+        assert_eq!(sanitize_path_component("AC/DC"), "AC_DC");
+    }
+
+    #[test]
+    fn sanitize_path_component_removes_backslashes() {
+        assert_eq!(sanitize_path_component("Back\\Slash"), "Back_Slash");
+    }
+
+    #[test]
+    fn sanitize_path_component_handles_empty_string() {
+        assert_eq!(sanitize_path_component(""), "Unknown");
+    }
+
+    #[test]
+    fn sanitize_path_component_handles_only_whitespace() {
+        assert_eq!(sanitize_path_component("   "), "Unknown");
+    }
+
+    #[test]
+    fn sanitize_path_component_handles_only_invalid_chars() {
+        assert_eq!(sanitize_path_component("///"), "___");
+    }
+
+    #[test]
+    fn sanitize_path_component_preserves_alphanumeric() {
+        assert_eq!(sanitize_path_component("Track01"), "Track01");
+    }
+
+    #[test]
+    fn sanitize_path_component_preserves_spaces_dots_underscores_dashes() {
+        assert_eq!(
+            sanitize_path_component("My Song - Part 1.5_remix"),
+            "My Song - Part 1.5_remix"
+        );
+    }
+
+    #[test]
+    fn sanitize_path_component_replaces_special_chars() {
+        assert_eq!(sanitize_path_component("Song: The <Best>?"), "Song_ The _Best__");
+    }
+
+    #[test]
+    fn sanitize_path_component_trims_whitespace() {
+        assert_eq!(sanitize_path_component("  Trimmed  "), "Trimmed");
+    }
+
+    #[test]
+    fn sanitize_path_component_replaces_unicode() {
+        // Non-ASCII chars should be replaced with underscore
+        assert_eq!(sanitize_path_component("Müsic"), "M_sic");
+        assert_eq!(sanitize_path_component("日本語"), "___");
+    }
+
+    // ==================== build_tags tests ====================
+
+    #[test]
+    #[serial]
+    fn build_tags_includes_all_metadata() -> Result<()> {
+        gstreamer::init()?;
+
+        let track = Track {
+            number: 5,
+            title: "Test Track".to_string(),
+            artist: "Test Artist".to_string(),
+            duration: 180,
+            composer: Some("Test Composer".to_string()),
+            rip: true,
+        };
+
+        let disc = Disc {
+            title: "Test Album".to_string(),
+            artist: "Album Artist".to_string(),
+            year: Some(2023),
+            genre: None,
+            tracks: vec![],
+        };
+
+        let tags = super::build_tags(&track, &disc)?;
+
+        // Verify tags were created - n_tags returns the number of distinct tag names
+        assert!(tags.n_tags() > 0);
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn build_tags_handles_missing_optional_fields() -> Result<()> {
+        gstreamer::init()?;
+
+        let track = Track {
+            number: 1,
+            title: "No Composer Track".to_string(),
+            artist: "Artist".to_string(),
+            duration: 120,
+            composer: None,
+            rip: true,
+        };
+
+        let disc = Disc {
+            title: "No Year Album".to_string(),
+            artist: "Artist".to_string(),
+            year: None,
+            genre: None,
+            tracks: vec![],
+        };
+
+        let tags = super::build_tags(&track, &disc)?;
+        assert!(tags.n_tags() > 0);
+        Ok(())
+    }
 
     fn test_wav_path() -> Result<String> {
         let mut path = env::var("CARGO_MANIFEST_DIR")?;

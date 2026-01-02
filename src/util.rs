@@ -59,6 +59,7 @@ fn fake_discid() -> DiscId {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::data::{Encoder, Quality};
 
     fn bad_discid() -> DiscId {
         let offsets = [450, 150, 300];
@@ -84,5 +85,52 @@ mod test {
         assert_eq!(disc.tracks[0].artist, "Unknown");
         assert_eq!(disc.tracks[1].title, "Unknown");
         assert_eq!(disc.tracks[1].artist, "Unknown");
+    }
+
+    // ==================== Config tests ====================
+
+    #[test]
+    #[ignore = "modifies real config file - run manually"]
+    fn config_roundtrip_preserves_values() {
+        // Save original config to restore later
+        let original = read_config();
+
+        // Create test config with non-default values
+        let test_config = Config {
+            encode_path: "/tmp/test_music/".to_string(),
+            encoder: Encoder::FLAC,
+            quality: Quality::High,
+            fake_cdrom: true,
+        };
+
+        // Write and read back
+        write_config(&test_config);
+        let loaded = read_config();
+
+        // Verify values match
+        assert_eq!(loaded.encode_path, test_config.encode_path);
+        assert_eq!(loaded.encoder, test_config.encoder);
+        assert_eq!(loaded.quality, test_config.quality);
+        assert_eq!(loaded.fake_cdrom, test_config.fake_cdrom);
+
+        // Restore original config
+        write_config(&original);
+    }
+
+    #[test]
+    fn read_config_returns_valid_config() {
+        // This tests that read_config doesn't panic and returns a usable config
+        let config = read_config();
+        // encode_path should be a non-empty string
+        assert!(!config.encode_path.is_empty());
+    }
+
+    #[test]
+    fn fake_discid_is_valid() {
+        let disc = fake_discid();
+        // Dire Straits - Money for Nothing has 12 tracks
+        assert_eq!(disc.last_track_num() - disc.first_track_num() + 1, 12);
+        // The disc ID should be consistent
+        assert!(!disc.id().is_empty());
     }
 }

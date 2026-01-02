@@ -48,7 +48,7 @@ pub struct Data {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Serialize, Deserialize, Default, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone, Copy)]
 pub enum Encoder {
     #[default]
     MP3,
@@ -88,7 +88,7 @@ impl Encoder {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone, Copy)]
 pub enum Quality {
     Low,
     #[default]
@@ -170,5 +170,178 @@ impl Default for Config {
             quality: Quality::Medium,
             fake_cdrom: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn disc_with_tracks_initializes_defaults() {
+        let disc = Disc::with_tracks(3);
+        assert_eq!(disc.title, "Unknown");
+        assert_eq!(disc.artist, "Unknown");
+        assert_eq!(disc.tracks.len(), 3);
+
+        for (idx, track) in disc.tracks.iter().enumerate() {
+            let number = (idx as u32) + 1;
+            assert_eq!(track.number, number);
+            assert_eq!(track.title, "Unknown");
+            assert_eq!(track.artist, "Unknown");
+            assert_eq!(track.duration, 0);
+            assert!(track.composer.is_none());
+            assert!(!track.rip);
+        }
+    }
+
+    #[test]
+    fn encoder_index_roundtrip_and_extensions() {
+        let cases = [
+            (Encoder::MP3, 0, ".mp3"),
+            (Encoder::OGG, 1, ".ogg"),
+            (Encoder::FLAC, 2, ".flac"),
+            (Encoder::OPUS, 3, ".ogg"),
+        ];
+        for (encoder, idx, ext) in cases {
+            assert_eq!(Encoder::from_index(idx), encoder);
+            assert_eq!(encoder.to_index(), idx);
+            assert_eq!(encoder.file_extension(), ext);
+        }
+
+        assert_eq!(Encoder::from_index(99), Encoder::default());
+    }
+
+    #[test]
+    fn quality_index_roundtrip_and_settings() {
+        let cases = [
+            (Quality::Low, 0, 9.0, 0.2, "2", 64_000),
+            (Quality::Medium, 1, 5.0, 0.5, "5", 128_000),
+            (Quality::High, 2, 0.0, 0.9, "8", 256_000),
+        ];
+        for (quality, idx, mp3_q, vorbis_q, flac_lvl, opus_br) in cases {
+            assert_eq!(Quality::from_index(idx), quality);
+            assert_eq!(quality.to_index(), idx);
+            assert_eq!(quality.mp3_quality(), mp3_q);
+            assert_eq!(quality.vorbis_quality(), vorbis_q);
+            assert_eq!(quality.flac_level(), flac_lvl);
+            assert_eq!(quality.opus_bitrate(), opus_br);
+        }
+
+        assert_eq!(Quality::from_index(99), Quality::default());
+    }
+
+    #[test]
+    fn config_default_uses_home_music_path() {
+        let home = home::home_dir().expect("Failed to get home dir!");
+        let expected = format!("{}/Music/", home.display());
+        let config = Config::default();
+        assert_eq!(config.encode_path, expected);
+        assert_eq!(config.encoder, Encoder::MP3);
+        assert_eq!(config.quality, Quality::Medium);
+        assert!(!config.fake_cdrom);
+    }
+
+    // ==================== Edge case tests ====================
+
+    #[test]
+    fn disc_with_zero_tracks() {
+        let disc = Disc::with_tracks(0);
+        assert!(disc.tracks.is_empty());
+        assert_eq!(disc.title, "Unknown");
+        assert_eq!(disc.artist, "Unknown");
+    }
+
+    #[test]
+    fn disc_default_has_no_tracks() {
+        let disc = Disc::default();
+        assert!(disc.tracks.is_empty());
+        assert!(disc.title.is_empty());
+        assert!(disc.artist.is_empty());
+        assert!(disc.year.is_none());
+        assert!(disc.genre.is_none());
+    }
+
+    #[test]
+    fn track_default_values() {
+        let track = Track::default();
+        assert_eq!(track.number, 0);
+        assert!(track.title.is_empty());
+        assert!(track.artist.is_empty());
+        assert_eq!(track.duration, 0);
+        assert!(track.composer.is_none());
+        assert!(!track.rip);
+    }
+
+    #[test]
+    fn encoder_all_variants_have_non_empty_extensions() {
+        let encoders = [Encoder::MP3, Encoder::OGG, Encoder::FLAC, Encoder::OPUS];
+        for encoder in encoders {
+            let ext = encoder.file_extension();
+            assert!(!ext.is_empty(), "Extension for {encoder:?} should not be empty");
+            assert!(ext.starts_with('.'), "Extension for {encoder:?} should start with '.'");
+        }
+    }
+
+    #[test]
+    fn encoder_options_matches_variant_count() {
+        // Ensure OPTIONS array stays in sync with enum variants
+        assert_eq!(Encoder::OPTIONS.len(), 4);
+        assert_eq!(Encoder::OPTIONS[0], "mp3");
+        assert_eq!(Encoder::OPTIONS[1], "ogg");
+        assert_eq!(Encoder::OPTIONS[2], "flac");
+        assert_eq!(Encoder::OPTIONS[3], "opus");
+    }
+
+    #[test]
+    fn quality_options_matches_variant_count() {
+        assert_eq!(Quality::OPTIONS.len(), 3);
+        assert_eq!(Quality::OPTIONS[0], "low");
+        assert_eq!(Quality::OPTIONS[1], "medium");
+        assert_eq!(Quality::OPTIONS[2], "high");
+    }
+
+    #[test]
+    fn quality_mp3_values_in_valid_range() {
+        // LAME quality is 0-9 where 0=best, 9=worst
+        for quality in [Quality::Low, Quality::Medium, Quality::High] {
+            let val = quality.mp3_quality();
+            assert!((0.0..=9.0).contains(&val), "MP3 quality {val} out of range for {quality:?}");
+        }
+    }
+
+    #[test]
+    fn quality_vorbis_values_in_valid_range() {
+        // Vorbis quality is 0.0-1.0
+        for quality in [Quality::Low, Quality::Medium, Quality::High] {
+            let val = quality.vorbis_quality();
+            assert!((0.0..=1.0).contains(&val), "Vorbis quality {val} out of range for {quality:?}");
+        }
+    }
+
+    #[test]
+    fn quality_flac_levels_are_valid() {
+        // FLAC compression level is 0-8
+        for quality in [Quality::Low, Quality::Medium, Quality::High] {
+            let level: u32 = quality.flac_level().parse().expect("FLAC level should be numeric");
+            assert!((0..=8).contains(&level), "FLAC level {level} out of range for {quality:?}");
+        }
+    }
+
+    #[test]
+    fn quality_opus_bitrates_are_reasonable() {
+        // Opus bitrate should be positive and reasonable (32k-512k typical range)
+        for quality in [Quality::Low, Quality::Medium, Quality::High] {
+            let bitrate = quality.opus_bitrate();
+            assert!(bitrate > 0, "Opus bitrate should be positive for {quality:?}");
+            assert!(bitrate >= 32_000, "Opus bitrate {bitrate} too low for {quality:?}");
+            assert!(bitrate <= 512_000, "Opus bitrate {bitrate} too high for {quality:?}");
+        }
+    }
+
+    #[test]
+    fn data_default_has_no_disc() {
+        let data = Data::default();
+        assert!(data.disc.is_none());
     }
 }
