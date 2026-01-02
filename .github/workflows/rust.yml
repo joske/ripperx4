@@ -3,18 +3,27 @@ on: [push, pull_request]
 env:
   CARGO_TERM_COLOR: always
 jobs:
-  build-linux:
-    runs-on: ubuntu-24.04
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            install: sudo apt update && sudo apt install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev gstreamer1.0-plugins-good libdiscid-dev
+            artifact: ripperx4-linux
+          - os: macos-latest
+            install: brew install gtk4 gstreamer libdiscid
+            artifact: ripperx4-macos
     steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v6
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: nightly
-          components: rustfmt, clippy
+          components: clippy, rustfmt
       - name: Set up Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Install glib/gtk dev
-        run: sudo apt update && sudo apt install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev gstreamer1.0-plugins-good libdiscid-dev
+        run: ${{ matrix.install }}
       - name: check cargo fmt
         run: cargo fmt --all -- --check
       - name: check clippy
@@ -23,31 +32,7 @@ jobs:
         run: cargo test
       - name: Build
         run: cargo build --release
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
-          name: ripperx4-linux
-          path: target/release/ripperx4
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: nightly
-          components: rustfmt, clippy
-      - name: Set up Rust Cache
-        uses: Swatinem/rust-cache@v2
-      - name: Install glib/gtk dev
-        run: brew install gtk4 gstreamer libdiscid
-      - name: check cargo fmt
-        run: cargo fmt --all -- --check
-      - name: check clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-      - name: Run tests
-        run: cargo test
-      - name: Build
-        run: cargo build --release
-      - uses: actions/upload-artifact@v5
-        with:
-          name: ripperx4-macos
+          name: ${{ matrix.artifact }}
           path: target/release/ripperx4
