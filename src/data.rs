@@ -25,7 +25,7 @@ impl Disc {
                 artist: "Unknown".to_string(),
                 duration: 0,
                 composer: None,
-                rip: false,
+                rip: true,
             });
         }
         d
