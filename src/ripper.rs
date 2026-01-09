@@ -52,16 +52,20 @@ fn extract_track(
 
     let main_loop = MainLoop::new(None, false);
     let main_loop_clone = main_loop.clone();
+    let progress_loop = main_loop.clone();
 
     pipeline.set_state(State::Playing)?;
 
     let working = Arc::new(RwLock::new(true));
+    let aborted = Arc::new(RwLock::new(false));
     start_progress_updates(
         status_message,
         pipeline.clone(),
         ripping,
         status.clone(),
         working.clone(),
+        aborted.clone(),
+        progress_loop,
     );
 
     let bus = pipeline
@@ -110,6 +114,10 @@ fn extract_track(
     {
         return Err(anyhow!(msg.clone()));
     }
+    if aborted.read().map(|a| *a).unwrap_or(false) {
+        debug!("Encoding {title} aborted by user request");
+        return Err(anyhow!("Ripping aborted by user"));
+    }
     debug!("Finished encoding {title}");
     Ok(())
 }
@@ -128,11 +136,22 @@ fn start_progress_updates(
     ripping: Arc<RwLock<bool>>,
     status: Sender<String>,
     working: Arc<RwLock<bool>>,
+    aborted: Arc<RwLock<bool>>,
+    main_loop: MainLoop,
 ) {
-    glib::timeout_add(std::time::Duration::from_millis(1000), move || {
-        let should_continue = is_ripping(&ripping) && working.read().map(|w| *w).unwrap_or(false);
+    glib::timeout_add(std::time::Duration::from_millis(500), move || {
+        let still_working = working.read().map(|w| *w).unwrap_or(false);
+        if !still_working {
+            return ControlFlow::Break;
+        }
 
-        if !should_continue {
+        if !is_ripping(&ripping) {
+            set_working(&working, false);
+            if let Ok(mut flag) = aborted.write() {
+                *flag = true;
+            }
+            let _ = pipeline.set_state(State::Null);
+            main_loop.quit();
             return ControlFlow::Break;
         }
 
