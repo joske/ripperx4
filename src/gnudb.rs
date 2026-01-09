@@ -6,7 +6,9 @@ use crate::data::{Disc, Track};
 
 pub(crate) fn lookup(discid: &DiscId) -> Result<Disc> {
     let matches = gnudb::http_query("gnudb.gnudb.org", 80, discid)?;
-    let first = matches.first().unwrap();
+    let first = matches
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("No GNUDB matches found"))?;
     let disc = gnudb::http_read("gnudb.gnudb.org", 80, first)?;
     debug!("Found GNUDB data: {} - {}", disc.artist, disc.title);
     Ok(Disc::from(disc))

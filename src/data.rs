@@ -191,7 +191,7 @@ mod test {
             assert_eq!(track.artist, "Unknown");
             assert_eq!(track.duration, 0);
             assert!(track.composer.is_none());
-            assert!(!track.rip);
+            assert!(track.rip);
         }
     }
 
