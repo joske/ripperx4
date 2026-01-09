@@ -5,6 +5,7 @@ use log::warn;
 use crate::util::write_config;
 
 mod data;
+mod gnudb;
 mod musicbrainz;
 mod ripper;
 mod ui;

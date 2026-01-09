@@ -39,10 +39,7 @@ pub fn lookup_disc(discid: &DiscId) -> Disc {
         }
         Err(e) => {
             warn!("MusicBrainz lookup failed: {e}");
-            let first = discid.first_track_num() as u32;
-            let last = discid.last_track_num() as u32;
-            let track_count = last.saturating_sub(first) + 1;
-            Disc::with_tracks(track_count)
+            crate::gnudb::lookup(discid)
         }
     }
 }
