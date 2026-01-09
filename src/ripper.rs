@@ -8,6 +8,7 @@ use glib::ControlFlow;
 use gstreamer::{
     ClockTime, Element, ElementFactory, Format, GenericFormattedValue, MessageView, Pipeline,
     State, TagList, TagMergeMode, TagSetter, URIType,
+    bus::BusWatchGuard,
     format::Percent,
     glib,
     glib::MainLoop,
@@ -17,8 +18,50 @@ use gstreamer::{
 use log::{debug, error};
 use std::{
     path::Path,
-    sync::{Arc, RwLock},
+    sync::{
+        Arc, RwLock,
+        atomic::{AtomicBool, Ordering},
+    },
 };
+
+/// Encapsulates the state for extracting a single track.
+///
+/// This struct manages the coordination between the `GStreamer` pipeline,
+/// progress updates, and user cancellation. It uses atomic booleans for
+/// lock-free access to state flags from multiple contexts (bus watch,
+/// progress timer, and main loop).
+struct TrackExtractor {
+    /// Whether the extraction is still in progress
+    working: Arc<AtomicBool>,
+    /// Whether the user requested cancellation
+    aborted: Arc<AtomicBool>,
+    /// Last error message from `GStreamer`, if any
+    last_error: Arc<RwLock<Option<String>>>,
+    /// Channel to send status updates to the UI
+    status: Sender<String>,
+    /// External flag indicating if ripping should continue (shared across all tracks)
+    ripping: Arc<RwLock<bool>>,
+}
+
+impl TrackExtractor {
+    fn new(status: Sender<String>, ripping: Arc<RwLock<bool>>) -> Self {
+        Self {
+            working: Arc::new(AtomicBool::new(true)),
+            aborted: Arc::new(AtomicBool::new(false)),
+            last_error: Arc::new(RwLock::new(None)),
+            status,
+            ripping,
+        }
+    }
+
+    fn was_aborted(&self) -> bool {
+        self.aborted.load(Ordering::Relaxed)
+    }
+
+    fn take_error(&self) -> Option<String> {
+        self.last_error.read().ok().and_then(|e| e.clone())
+    }
+}
 
 /// Extract/Rip a `Disc` to the configured format
 pub fn extract(disc: &Disc, status: &Sender<String>, ripping: &Arc<RwLock<bool>>) -> Result<()> {
@@ -29,7 +72,7 @@ pub fn extract(disc: &Disc, status: &Sender<String>, ripping: &Arc<RwLock<bool>>
         }
         if track.rip {
             let pipeline = create_pipeline(track, disc)?;
-            extract_track(pipeline, &track.title, status, ripping.clone())?;
+            extract_track(&pipeline, &track.title, status, ripping.clone())?;
         }
     }
     Ok(())
@@ -42,7 +85,7 @@ fn is_ripping(ripping: &Arc<RwLock<bool>>) -> bool {
 
 /// Rip one track using the provided pipeline
 fn extract_track(
-    pipeline: Pipeline,
+    pipeline: &Pipeline,
     title: &str,
     status: &Sender<String>,
     ripping: Arc<RwLock<bool>>,
@@ -50,71 +93,25 @@ fn extract_track(
     let status_message = format!("Encoding {title}");
     let _ = status.send_blocking(status_message.clone());
 
+    let extractor = TrackExtractor::new(status.clone(), ripping);
     let main_loop = MainLoop::new(None, false);
-    let main_loop_clone = main_loop.clone();
-    let progress_loop = main_loop.clone();
 
     pipeline.set_state(State::Playing)?;
 
-    let working = Arc::new(RwLock::new(true));
-    let aborted = Arc::new(RwLock::new(false));
     start_progress_updates(
+        &extractor,
         status_message,
         pipeline.clone(),
-        ripping,
-        status.clone(),
-        working.clone(),
-        aborted.clone(),
-        progress_loop,
+        main_loop.clone(),
     );
-
-    let bus = pipeline
-        .bus()
-        .ok_or_else(|| anyhow!("Pipeline has no bus"))?;
-    let status_clone = status.clone();
-    let last_error = Arc::new(RwLock::new(None));
-    let last_error_clone = last_error.clone();
-
-    let _guard = bus.add_watch(move |_, msg| {
-        match msg.view() {
-            MessageView::Eos(..) => {
-                debug!("End of stream");
-                set_working(&working, false);
-                let _ = pipeline.set_state(State::Null);
-                main_loop_clone.quit();
-            }
-            MessageView::Error(err) => {
-                let _ = status_clone.send_blocking("aborted".to_owned());
-                set_working(&working, false);
-                if let Ok(mut e) = last_error_clone.write() {
-                    *e = Some(format!(
-                        "GStreamer error from {:?}: {} ({:?})",
-                        err.src().map(GstObjectExt::path_string),
-                        err.error(),
-                        err.debug()
-                    ));
-                }
-                error!(
-                    "GStreamer error from {:?}: {} ({:?})",
-                    err.src().map(GstObjectExt::path_string),
-                    err.error(),
-                    err.debug()
-                );
-                let _ = pipeline.set_state(State::Null);
-                main_loop_clone.quit();
-            }
-            _ => (),
-        }
-        ControlFlow::Continue
-    })?;
+    let _bus_watch = setup_bus_watch(&extractor, pipeline, main_loop.clone())?;
 
     main_loop.run();
-    if let Ok(e) = last_error.read()
-        && let Some(msg) = e.as_ref()
-    {
-        return Err(anyhow!(msg.clone()));
+
+    if let Some(msg) = extractor.take_error() {
+        return Err(anyhow!(msg));
     }
-    if aborted.read().map(|a| *a).unwrap_or(false) {
+    if extractor.was_aborted() {
         debug!("Encoding {title} aborted by user request");
         return Err(anyhow!("Ripping aborted by user"));
     }
@@ -122,34 +119,77 @@ fn extract_track(
     Ok(())
 }
 
-/// Set the working flag
-fn set_working(working: &Arc<RwLock<bool>>, value: bool) {
-    if let Ok(mut w) = working.write() {
-        *w = value;
-    }
+/// Set up the `GStreamer` bus watch to handle EOS and error messages.
+/// Returns the guard that must be kept alive until the main loop exits.
+fn setup_bus_watch(
+    extractor: &TrackExtractor,
+    pipeline: &Pipeline,
+    main_loop: MainLoop,
+) -> Result<BusWatchGuard> {
+    let bus = pipeline
+        .bus()
+        .ok_or_else(|| anyhow!("Pipeline has no bus"))?;
+
+    let working = extractor.working.clone();
+    let last_error = extractor.last_error.clone();
+    let status = extractor.status.clone();
+    let pipeline = pipeline.clone();
+
+    let guard = bus.add_watch(move |_, msg| {
+        match msg.view() {
+            MessageView::Eos(..) => {
+                debug!("End of stream");
+                working.store(false, Ordering::Relaxed);
+                let _ = pipeline.set_state(State::Null);
+                main_loop.quit();
+            }
+            MessageView::Error(err) => {
+                let _ = status.send_blocking("aborted".to_owned());
+                working.store(false, Ordering::Relaxed);
+
+                let error_msg = format!(
+                    "GStreamer error from {:?}: {} ({:?})",
+                    err.src().map(GstObjectExt::path_string),
+                    err.error(),
+                    err.debug()
+                );
+                error!("{error_msg}");
+
+                if let Ok(mut e) = last_error.write() {
+                    *e = Some(error_msg);
+                }
+
+                let _ = pipeline.set_state(State::Null);
+                main_loop.quit();
+            }
+            _ => (),
+        }
+        ControlFlow::Continue
+    })?;
+
+    Ok(guard)
 }
 
 /// Start periodic progress updates
 fn start_progress_updates(
+    extractor: &TrackExtractor,
     status_message: String,
     pipeline: Pipeline,
-    ripping: Arc<RwLock<bool>>,
-    status: Sender<String>,
-    working: Arc<RwLock<bool>>,
-    aborted: Arc<RwLock<bool>>,
     main_loop: MainLoop,
 ) {
+    let working = extractor.working.clone();
+    let aborted = extractor.aborted.clone();
+    let ripping = extractor.ripping.clone();
+    let status = extractor.status.clone();
+
     glib::timeout_add(std::time::Duration::from_millis(500), move || {
-        let still_working = working.read().map(|w| *w).unwrap_or(false);
-        if !still_working {
+        if !working.load(Ordering::Relaxed) {
             return ControlFlow::Break;
         }
 
-        if !is_ripping(&ripping) {
-            set_working(&working, false);
-            if let Ok(mut flag) = aborted.write() {
-                *flag = true;
-            }
+        if !ripping.read().map(|r| *r).unwrap_or(false) {
+            working.store(false, Ordering::Relaxed);
+            aborted.store(true, Ordering::Relaxed);
             let _ = pipeline.set_state(State::Null);
             main_loop.quit();
             return ControlFlow::Break;
@@ -562,7 +602,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        let result = extract_track(pipeline, "track", &tx, ripping);
+        let result = extract_track(&pipeline, "track", &tx, ripping);
         // Pipeline fails because filesrc->filesink is invalid (incompatible elements)
         assert!(result.is_err());
         Ok(())
@@ -590,7 +630,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(pipeline, "track", &tx, ripping)?;
+        extract_track(&pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
         assert!(Path::new(dest).is_file());
@@ -620,7 +660,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(pipeline, "track", &tx, ripping)?;
+        extract_track(&pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
         assert!(Path::new(dest).is_file());
@@ -652,7 +692,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(pipeline, "track", &tx, ripping)?;
+        extract_track(&pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
         assert!(Path::new(dest).is_file());
@@ -684,7 +724,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(pipeline, "track", &tx, ripping)?;
+        extract_track(&pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
         assert!(Path::new(dest).is_file());
