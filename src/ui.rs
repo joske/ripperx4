@@ -99,7 +99,7 @@ pub fn build(app: &Application) {
     }
 
     handle_disc(data.clone(), &builder);
-    handle_scan(data.clone(), &builder, &window);
+    handle_scan(&data.clone(), &builder, &window);
     handle_config(&builder, &window);
     handle_stop(ripping.clone(), data.clone(), &builder);
     handle_go(ripping, data, &builder);
@@ -293,7 +293,7 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &Bu
 }
 
 #[allow(clippy::too_many_lines)] // GTK handler with multiple widget setups
-fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationWindow) {
+fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationWindow) {
     let window = window.clone();
 
     let Some(title_entry) = get_widget::<Entry>(builder, "disc_title") else {
@@ -311,10 +311,19 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     let Some(go_button) = get_widget::<Button>(builder, "go_button") else {
         return;
     };
+    let Some(stop_button) = get_widget::<Button>(builder, "stop_button") else {
+        return;
+    };
     let Some(tree) = get_widget::<TreeView>(builder, "track_listview") else {
         return;
     };
     let Some(scan_button) = get_widget::<Button>(builder, "scan_button") else {
+        return;
+    };
+    let Some(config_button) = get_widget::<Button>(builder, "config_button") else {
+        return;
+    };
+    let Some(exit_button) = get_widget::<Button>(builder, "exit") else {
         return;
     };
 
@@ -415,49 +424,119 @@ fn handle_scan(data: Arc<RwLock<Data>>, builder: &Builder, window: &ApplicationW
     ));
 
     // Scan button click handler
+    let scan_button_clone = scan_button.clone();
+    let go_button_clone = go_button.clone();
+    let stop_button_clone = stop_button.clone();
+    let config_button_clone = config_button.clone();
+    let exit_button_clone = exit_button.clone();
+    let store_clone = store.clone();
+    let data_clone = data.clone();
+    let title_entry_clone = title_entry.clone();
+    let artist_entry_clone = artist_entry.clone();
+    let year_entry_clone = year_entry.clone();
+    let genre_entry_clone = genre_entry.clone();
+    let window_clone = window.clone();
+
     scan_button.connect_clicked(move |_| {
         debug!("Scan");
-        match scan_disc() {
-            Ok(discid) => {
-                debug!("Scanned: {discid:?}");
-                debug!("id={}", discid.id());
 
-                let disc = lookup_disc(&discid);
-                debug!("disc: {}", disc.title);
+        let mut button_states: Vec<(Button, bool)> = Vec::new();
+        for button in [
+            scan_button_clone.clone(),
+            go_button_clone.clone(),
+            stop_button_clone.clone(),
+            config_button_clone.clone(),
+            exit_button_clone.clone(),
+        ] {
+            let was_sensitive = button.is_sensitive();
+            button.set_sensitive(false);
+            button_states.push((button, was_sensitive));
+        }
 
-                title_entry.set_text(&disc.title);
-                artist_entry.set_text(&disc.artist);
-                year_entry.set_text(&disc.year.map_or(String::new(), |y| y.to_string()));
-                genre_entry.set_text(disc.genre.as_deref().unwrap_or(""));
+        let (tx, rx) = async_channel::bounded(1);
 
-                if let Ok(mut d) = data.write() {
-                    d.disc = Some(disc);
-                }
+        thread::spawn({
+            let tx = tx.clone();
+            move || {
+                let result = match scan_disc() {
+                    Ok(discid) => {
+                        debug!("Scanned: {discid:?}");
+                        debug!("id={}", discid.id());
+                        let disc = lookup_disc(&discid);
+                        debug!("disc: {}", disc.title);
+                        Ok(disc)
+                    }
+                    Err(e) => Err(format!("{e}")),
+                };
+                let _ = tx.send_blocking(result);
+            }
+        });
 
-                store.clear();
-                if let Ok(d) = data.read()
-                    && let Some(disc) = &d.disc
-                {
+        let data_for_handler = data_clone.clone();
+        let store_for_handler = store_clone.clone();
+        let title_entry_for_handler = title_entry_clone.clone();
+        let artist_entry_for_handler = artist_entry_clone.clone();
+        let year_entry_for_handler = year_entry_clone.clone();
+        let genre_entry_for_handler = genre_entry_clone.clone();
+        let window_for_handler = window_clone.clone();
+        let go_button_for_handler = go_button_clone.clone();
+        let button_states_for_handler = button_states;
+
+        glib::spawn_future_local(async move {
+            let recv_result = rx.recv().await;
+
+            for (button, was_sensitive) in &button_states_for_handler {
+                button.set_sensitive(*was_sensitive);
+            }
+
+            match recv_result {
+                Ok(Ok(disc)) => {
+                    let year_text = disc.year.map_or(String::new(), |y| y.to_string());
+                    let genre_text = disc.genre.clone().unwrap_or_default();
+
+                    title_entry_for_handler.set_text(&disc.title);
+                    artist_entry_for_handler.set_text(&disc.artist);
+                    year_entry_for_handler.set_text(&year_text);
+                    genre_entry_for_handler.set_text(&genre_text);
+
+                    store_for_handler.clear();
                     for track in &disc.tracks {
-                        let iter = store.append();
-                        store.set(
+                        let iter = store_for_handler.append();
+                        store_for_handler.set(
                             &iter,
                             &[
-                                (0, &true),
+                                (0, &track.rip),
                                 (1, &track.number),
                                 (2, &track.title),
                                 (3, &track.artist),
                             ],
                         );
                     }
+
+                    if let Ok(mut d) = data_for_handler.write() {
+                        d.disc = Some(disc);
+                    }
+
+                    go_button_for_handler.set_sensitive(true);
                 }
-                go_button.set_sensitive(true);
+                Ok(Err(err)) => {
+                    debug!("Scan failed: {err}");
+                    show_message(
+                        "Failed to scan disc",
+                        MessageType::Error,
+                        &window_for_handler,
+                    );
+                }
+                Err(err) => {
+                    debug!("Scan channel closed unexpectedly: {err}");
+                    show_message(
+                        "Failed to scan disc",
+                        MessageType::Error,
+                        &window_for_handler,
+                    );
+                }
             }
-            Err(e) => {
-                debug!("Scan failed: {e}");
-                show_message("Failed to scan disc", MessageType::Error, &window);
-            }
-        }
+        });
     });
 }
 
