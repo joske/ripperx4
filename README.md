@@ -23,7 +23,7 @@ It is now almost feature complete, see below:
 ## What works
 
 - can scan CDROM drive
-- query musicbrainz
+- query musicbrainz with fallback to gnudb
 - you can edit the data
 - adds tags to the files
 - you can select which tracks to rip
@@ -41,7 +41,7 @@ Install gtk 4, gstreamer, libdiscid
 
 `cargo build`
 
-Tip: builds for x86 macOS and linux are available on every build in Actions/Artifacts.
+Tip: builds for macOS and linux are available on every build in Actions/Artifacts.
 
 ## Running
 
