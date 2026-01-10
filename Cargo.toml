@@ -26,6 +26,7 @@ log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 simplelog = "0.12"
 gnudb = "0.4"
+notify-rust = "4.11"
 
 [dev-dependencies]
 serial_test = "3.2"

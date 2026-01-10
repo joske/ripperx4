@@ -10,6 +10,7 @@ use gtk::{
     Statusbar, TreeView, prelude::*,
 };
 use log::{debug, warn};
+use notify_rust::Notification;
 use std::{
     sync::{Arc, RwLock},
     thread,
@@ -35,6 +36,7 @@ struct ButtonGroup {
     scan: Button,
     stop: Button,
     go: Button,
+    config: Button,
 }
 
 impl ButtonGroup {
@@ -43,6 +45,7 @@ impl ButtonGroup {
             scan: get_widget(builder, "scan_button")?,
             stop: get_widget(builder, "stop_button")?,
             go: get_widget(builder, "go_button")?,
+            config: get_widget(builder, "config_button")?,
         })
     }
 
@@ -50,12 +53,14 @@ impl ButtonGroup {
         self.scan.set_sensitive(!ripping);
         self.stop.set_sensitive(ripping);
         self.go.set_sensitive(!ripping);
+        self.config.set_sensitive(!ripping);
     }
 
     fn set_idle(&self, has_disc: bool) {
         self.scan.set_sensitive(true);
         self.stop.set_sensitive(false);
         self.go.set_sensitive(has_disc);
+        self.config.set_sensitive(true);
     }
 }
 
@@ -570,6 +575,8 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
     let go_button = buttons.go.clone();
     let stop_button = buttons.stop.clone();
     let scan_button = buttons.scan.clone();
+    let config_button = buttons.config.clone();
+    let data_for_notify = data.clone();
 
     let go_clone = go_button.clone();
     go_clone.connect_clicked(glib::clone!(
@@ -616,6 +623,8 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
             let scan_btn = scan_button.clone();
             let go_btn = go_button.clone();
             let stop_btn = stop_button.clone();
+            let config_btn = config_button.clone();
+            let notify_data = data_for_notify.clone();
 
             glib::spawn_future_local(async move {
                 while let Ok(msg) = rx.recv().await {
@@ -626,10 +635,25 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
                         scan_btn.set_sensitive(true);
                         go_btn.set_sensitive(true);
                         stop_btn.set_sensitive(false);
+                        config_btn.set_sensitive(true);
+                        if msg == "done" {
+                            notify_rip_complete(&notify_data);
+                        }
                         break;
                     }
                 }
             });
         }
     ));
+}
+
+fn notify_rip_complete(data: &Arc<RwLock<Data>>) {
+    if let Ok(state) = data.read()
+        && let Some(disc) = &state.disc
+    {
+        debug!("Sending rip complete notification");
+        let summary = "Ripping complete";
+        let body = format!("{} - {}", disc.artist, disc.title);
+        Notification::new().summary(summary).body(&body).show().ok();
+    }
 }
