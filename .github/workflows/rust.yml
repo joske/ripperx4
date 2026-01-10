@@ -10,10 +10,16 @@ jobs:
         include:
           - os: ubuntu-24.04
             install: sudo apt update && sudo apt install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev gstreamer1.0-plugins-good libdiscid-dev
-            artifact: ripperx4-linux
+            artifact: ripperx4-linux-intel
+          - os: ubuntu-24.04-arm
+            install: sudo apt update && sudo apt install -y libgtk-4-bin libgtk-4-common libgtk-4-dev libgstreamer1.0-dev gstreamer1.0-plugins-good libdiscid-dev
+            artifact: ripperx4-linux-arm64
           - os: macos-latest
             install: brew install gtk4 gstreamer libdiscid
-            artifact: ripperx4-macos
+            artifact: ripperx4-macos-arm64
+          - os: macos-15-intel
+            install: brew install gtk4 gstreamer libdiscid
+            artifact: ripperx4-macos-intel
     steps:
       - uses: actions/checkout@v6
       - name: Install Rust
