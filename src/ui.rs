@@ -284,16 +284,24 @@ fn handle_stop(ripping: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &Bu
     let Some(buttons) = ButtonGroup::from_builder(builder) else {
         return;
     };
+    let Some(track_view) = get_widget::<TreeView>(builder, "track_listview") else {
+        return;
+    };
 
     let stop = buttons.stop.clone();
-    stop.connect_clicked(move |_| {
-        debug!("stop");
-        if let Ok(mut r) = ripping.write() {
-            *r = false;
-            let has_disc = data.read().ok().is_some_and(|d| d.disc.is_some());
-            buttons.set_idle(has_disc);
+    stop.connect_clicked(glib::clone!(
+        #[weak]
+        track_view,
+        move |_| {
+            debug!("stop");
+            if let Ok(mut r) = ripping.write() {
+                *r = false;
+                let has_disc = data.read().ok().is_some_and(|d| d.disc.is_some());
+                buttons.set_idle(has_disc);
+                track_view.set_sensitive(true);
+            }
         }
-    });
+    ));
 }
 
 #[allow(clippy::too_many_lines)] // GTK handler with multiple widget setups
@@ -575,6 +583,9 @@ fn handle_go(
     let Some(status) = get_widget::<Statusbar>(builder, "statusbar") else {
         return;
     };
+    let Some(track_view) = get_widget::<TreeView>(builder, "track_listview") else {
+        return;
+    };
 
     let go_button = buttons.go.clone();
     let stop_button = buttons.stop.clone();
@@ -588,6 +599,8 @@ fn handle_go(
         status,
         #[strong]
         app,
+        #[weak]
+        track_view,
         move |_| {
             let Ok(mut ripping) = ripping_arc.write() else {
                 return;
@@ -595,6 +608,7 @@ fn handle_go(
 
             buttons.set_ripping(true);
             *ripping = true;
+            track_view.set_sensitive(false);
 
             let context_id = status.context_id("ripping");
             let (tx, rx) = async_channel::unbounded();
@@ -632,6 +646,7 @@ fn handle_go(
             let config_btn = config_button.clone();
             let notify_data = data_for_notify.clone();
             let notify_app = app.clone();
+            let track_view_done = track_view.clone();
 
             glib::spawn_future_local(async move {
                 while let Ok(msg) = rx.recv().await {
@@ -643,6 +658,7 @@ fn handle_go(
                         go_btn.set_sensitive(true);
                         stop_btn.set_sensitive(false);
                         config_btn.set_sensitive(true);
+                        track_view_done.set_sensitive(true);
                         if msg == "done" {
                             notify_rip_complete(&notify_app, &notify_data);
                         }
