@@ -30,6 +30,12 @@ fn set_picture(builder: &Builder, id: &str, resource: &str) {
     }
 }
 
+fn format_duration(seconds: u64) -> String {
+    let minutes = seconds / 60;
+    let secs = seconds % 60;
+    format!("{minutes}:{secs:02}")
+}
+
 /// Wrapper for buttons that manages state together
 struct ButtonGroup {
     scan: Button,
@@ -340,7 +346,13 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
     };
 
     // Build tree model
-    let store = ListStore::new(&[Type::BOOL, Type::U32, Type::STRING, Type::STRING]);
+    let store = ListStore::new(&[
+        Type::BOOL,
+        Type::U32,
+        Type::STRING,
+        Type::STRING,
+        Type::STRING,
+    ]);
     tree.set_model(Some(&store));
 
     // Encode column (toggle)
@@ -435,6 +447,12 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
         &[("text", 3)],
     ));
 
+    tree.append_column(&gtk::TreeViewColumn::with_attributes(
+        "Length",
+        &gtk::CellRendererText::new(),
+        &[("text", 4)],
+    ));
+
     // Scan button click handler
     let scan_button_clone = scan_button.clone();
     let go_button_clone = go_button.clone();
@@ -514,6 +532,7 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
                     store_for_handler.clear();
                     for track in &disc.tracks {
                         let iter = store_for_handler.append();
+                        let duration = format_duration(track.duration);
                         store_for_handler.set(
                             &iter,
                             &[
@@ -521,6 +540,7 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
                                 (1, &track.number),
                                 (2, &track.title),
                                 (3, &track.artist),
+                                (4, &duration),
                             ],
                         );
                     }
