@@ -7,10 +7,9 @@ use glib::{Type, prelude::IsA};
 use gtk::{
     Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog, DropDown,
     Entry, Frame, ListStore, MessageDialog, MessageType, Orientation, Picture, Separator,
-    Statusbar, TreeView, prelude::*,
+    Statusbar, TreeView, gio, prelude::*,
 };
 use log::{debug, warn};
-use notify_rust::Notification;
 use std::{
     sync::{Arc, RwLock},
     thread,
@@ -107,7 +106,7 @@ pub fn build(app: &Application) {
     handle_scan(&data.clone(), &builder, &window);
     handle_config(&builder, &window);
     handle_stop(ripping.clone(), data.clone(), &builder);
-    handle_go(ripping, data, &builder);
+    handle_go(app, ripping, data, &builder);
 }
 
 fn handle_config(builder: &Builder, window: &ApplicationWindow) {
@@ -564,7 +563,12 @@ fn show_message(message: &str, typ: MessageType, window: &ApplicationWindow) {
     dialog.show();
 }
 
-fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &Builder) {
+fn handle_go(
+    app: &Application,
+    ripping_arc: Arc<RwLock<bool>>,
+    data: Arc<RwLock<Data>>,
+    builder: &Builder,
+) {
     let Some(buttons) = ButtonGroup::from_builder(builder) else {
         return;
     };
@@ -582,6 +586,8 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
     go_clone.connect_clicked(glib::clone!(
         #[weak]
         status,
+        #[strong]
+        app,
         move |_| {
             let Ok(mut ripping) = ripping_arc.write() else {
                 return;
@@ -625,6 +631,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
             let stop_btn = stop_button.clone();
             let config_btn = config_button.clone();
             let notify_data = data_for_notify.clone();
+            let notify_app = app.clone();
 
             glib::spawn_future_local(async move {
                 while let Ok(msg) = rx.recv().await {
@@ -637,7 +644,7 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
                         stop_btn.set_sensitive(false);
                         config_btn.set_sensitive(true);
                         if msg == "done" {
-                            notify_rip_complete(&notify_data);
+                            notify_rip_complete(&notify_app, &notify_data);
                         }
                         break;
                     }
@@ -647,13 +654,15 @@ fn handle_go(ripping_arc: Arc<RwLock<bool>>, data: Arc<RwLock<Data>>, builder: &
     ));
 }
 
-fn notify_rip_complete(data: &Arc<RwLock<Data>>) {
+fn notify_rip_complete(app: &Application, data: &Arc<RwLock<Data>>) {
     if let Ok(state) = data.read()
         && let Some(disc) = &state.disc
     {
         debug!("Sending rip complete notification");
         let summary = "Ripping complete";
         let body = format!("{} - {}", disc.artist, disc.title);
-        Notification::new().summary(summary).body(&body).show().ok();
+        let notification = gio::Notification::new(summary);
+        notification.set_body(Some(&body));
+        app.send_notification(Some("rip-complete"), &notification);
     }
 }
