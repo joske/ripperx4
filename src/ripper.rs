@@ -239,6 +239,7 @@ fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
         Encoder::OGG => build_ogg_pipeline(&pipeline, extractor, sink, &tags, config.quality)?,
         Encoder::FLAC => build_flac_pipeline(&pipeline, extractor, sink, &tags, config.quality)?,
         Encoder::OPUS => build_opus_pipeline(&pipeline, extractor, sink, &tags, config.quality)?,
+        Encoder::WAV => build_wav_pipeline(&pipeline, extractor, sink)?,
     }
 
     Ok(pipeline)
@@ -413,10 +414,16 @@ fn build_opus_pipeline(
     )
 }
 
+#[allow(clippy::needless_pass_by_value)] // Elements are consumed by pipeline
+fn build_wav_pipeline(pipeline: &Pipeline, source: Element, sink: Element) -> Result<()> {
+    let encoder = ElementFactory::make("wavenc").build()?;
+    link_pipeline(pipeline, &[&source, &encoder, &sink])
+}
+
 #[cfg(test)]
 mod test {
     use anyhow::{Result, anyhow};
-    use gstreamer::{Element, ElementFactory, Pipeline, prelude::*};
+    use gstreamer::{Bin, Element, ElementFactory, GhostPad, Pipeline, prelude::*};
     use serial_test::serial;
     use std::{
         env,
@@ -426,8 +433,11 @@ mod test {
         sync::{Arc, RwLock},
     };
 
-    use super::{extract_track, sanitize_path_component};
-    use crate::data::{Disc, Track};
+    use super::{
+        build_flac_pipeline, build_mp3_pipeline, build_ogg_pipeline, build_opus_pipeline,
+        build_wav_pipeline, extract_track, sanitize_path_component,
+    };
+    use crate::data::{Disc, Quality, Track};
 
     // ==================== sanitize_path_component tests ====================
 
@@ -547,10 +557,47 @@ mod test {
         Ok(())
     }
 
-    fn test_wav_path() -> Result<String> {
+    fn test_pcm_path() -> Result<String> {
         let mut path = env::var("CARGO_MANIFEST_DIR")?;
-        path.push_str("/resources/test/file_example_WAV_1MG.wav");
+        path.push_str("/resources/test/test_audio.pcm");
         Ok(path)
+    }
+
+    /// Create a source bin that reads raw PCM and outputs audio
+    /// This simulates what cdda:// does when reading from a CD
+    fn create_test_source() -> Result<Element> {
+        let bin = Bin::new();
+
+        let filesrc = ElementFactory::make("filesrc").build()?;
+        filesrc.set_property("location", test_pcm_path()?);
+
+        let parse = ElementFactory::make("rawaudioparse").build()?;
+        // CD audio format: 44100Hz, stereo, 16-bit signed little-endian
+        parse.set_property_from_str("format", "pcm");
+        parse.set_property_from_str("pcm-format", "s16le");
+        parse.set_property("sample-rate", 44100i32);
+        parse.set_property("num-channels", 2i32);
+
+        bin.add_many([&filesrc, &parse])?;
+        filesrc.link(&parse)?;
+
+        // Create ghost pad to expose the audio output
+        let src_pad = parse.static_pad("src").ok_or(anyhow!("No src pad"))?;
+        let ghost_pad = GhostPad::with_target(&src_pad)?;
+        ghost_pad.set_active(true)?;
+        bin.add_pad(&ghost_pad)?;
+
+        Ok(bin.upcast())
+    }
+
+    fn create_test_sink(dest: &str) -> Result<Element> {
+        let sink = ElementFactory::make("filesink").build()?;
+        sink.set_property("location", dest);
+        Ok(sink)
+    }
+
+    fn create_empty_tags() -> gstreamer::TagList {
+        gstreamer::TagList::new()
     }
 
     /// Verify file type by checking magic bytes
@@ -566,6 +613,8 @@ mod test {
             [0x66, 0x4c, 0x61, 0x43, ..] => FileType::Flac,
             // OGG: "OggS"
             [0x4f, 0x67, 0x67, 0x53, ..] => FileType::Ogg,
+            // WAV: "RIFF....WAVE"
+            [0x52, 0x49, 0x46, 0x46, _, _, _, _, 0x57, 0x41, 0x56, 0x45] => FileType::Wav,
             _ => return Err(anyhow!("Unknown file type: {:02x?}", &header[..4])),
         };
 
@@ -581,6 +630,7 @@ mod test {
         Mp3,
         Flac,
         Ogg, // Vorbis and Opus both use OGG container
+        Wav,
     }
 
     #[test]
@@ -612,21 +662,14 @@ mod test {
     #[serial]
     pub fn test_mp3() -> Result<()> {
         gstreamer::init()?;
-        let path = test_wav_path()?;
-
-        let file = ElementFactory::make("filesrc").build()?;
-        file.set_property("location", &path);
-        let wav = ElementFactory::make("wavparse").build()?;
-        let encoder = ElementFactory::make("lamemp3enc").build()?;
-        let id3 = ElementFactory::make("id3v2mux").build()?;
-        let sink = ElementFactory::make("filesink").build()?;
-        let dest = "/tmp/file_example_WAV_1MG.mp3";
-        sink.set_property("location", dest);
 
         let pipeline = Pipeline::new();
-        let elements = &[&file, &wav, &encoder, &id3, &sink];
-        pipeline.add_many(elements)?;
-        Element::link_many(elements)?;
+        let source = create_test_source()?;
+        let dest = "/tmp/test_audio.mp3";
+        let sink = create_test_sink(dest)?;
+        let tags = create_empty_tags();
+
+        build_mp3_pipeline(&pipeline, source, sink, &tags, Quality::Medium)?;
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
@@ -643,20 +686,14 @@ mod test {
     #[serial]
     pub fn test_flac() -> Result<()> {
         gstreamer::init()?;
-        let path = test_wav_path()?;
-
-        let file = ElementFactory::make("filesrc").build()?;
-        file.set_property("location", &path);
-        let wav = ElementFactory::make("wavparse").build()?;
-        let encoder = ElementFactory::make("flacenc").build()?;
-        let sink = ElementFactory::make("filesink").build()?;
-        let dest = "/tmp/file_example_WAV_1MG.flac";
-        sink.set_property("location", dest);
 
         let pipeline = Pipeline::new();
-        let elements = &[&file, &wav, &encoder, &sink];
-        pipeline.add_many(elements)?;
-        Element::link_many(elements)?;
+        let source = create_test_source()?;
+        let dest = "/tmp/test_audio.flac";
+        let sink = create_test_sink(dest)?;
+        let tags = create_empty_tags();
+
+        build_flac_pipeline(&pipeline, source, sink, &tags, Quality::Medium)?;
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
@@ -673,22 +710,14 @@ mod test {
     #[serial]
     pub fn test_opus() -> Result<()> {
         gstreamer::init()?;
-        let path = test_wav_path()?;
-
-        let file = ElementFactory::make("filesrc").build()?;
-        file.set_property("location", &path);
-        let wav = ElementFactory::make("wavparse").build()?;
-        let convert = ElementFactory::make("audioconvert").build()?;
-        let encoder = ElementFactory::make("opusenc").build()?;
-        let mux = ElementFactory::make("oggmux").build()?;
-        let sink = ElementFactory::make("filesink").build()?;
-        let dest = "/tmp/file_example_WAV_1MG-opus.ogg";
-        sink.set_property("location", dest);
 
         let pipeline = Pipeline::new();
-        let elements = &[&file, &wav, &convert, &encoder, &mux, &sink];
-        pipeline.add_many(elements)?;
-        Element::link_many(elements)?;
+        let source = create_test_source()?;
+        let dest = "/tmp/test_audio_opus.ogg";
+        let sink = create_test_sink(dest)?;
+        let tags = create_empty_tags();
+
+        build_opus_pipeline(&pipeline, source, sink, &tags, Quality::Medium)?;
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
@@ -705,22 +734,14 @@ mod test {
     #[serial]
     pub fn test_ogg() -> Result<()> {
         gstreamer::init()?;
-        let path = test_wav_path()?;
-
-        let file = ElementFactory::make("filesrc").build()?;
-        file.set_property("location", &path);
-        let wav = ElementFactory::make("wavparse").build()?;
-        let convert = ElementFactory::make("audioconvert").build()?;
-        let vorbis = ElementFactory::make("vorbisenc").build()?;
-        let mux = ElementFactory::make("oggmux").build()?;
-        let sink = ElementFactory::make("filesink").build()?;
-        let dest = "/tmp/file_example_WAV_1MG.ogg";
-        sink.set_property("location", dest);
 
         let pipeline = Pipeline::new();
-        let elements = &[&file, &wav, &convert, &vorbis, &mux, &sink];
-        pipeline.add_many(elements)?;
-        Element::link_many(elements)?;
+        let source = create_test_source()?;
+        let dest = "/tmp/test_audio.ogg";
+        let sink = create_test_sink(dest)?;
+        let tags = create_empty_tags();
+
+        build_ogg_pipeline(&pipeline, source, sink, &tags, Quality::Medium)?;
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
@@ -729,6 +750,29 @@ mod test {
         assert!(Path::new(dest).exists());
         assert!(Path::new(dest).is_file());
         verify_file_type(dest, &FileType::Ogg)?;
+        remove_file(dest)?;
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    pub fn test_wav() -> Result<()> {
+        gstreamer::init()?;
+
+        let pipeline = Pipeline::new();
+        let source = create_test_source()?;
+        let dest = "/tmp/test_audio.wav";
+        let sink = create_test_sink(dest)?;
+
+        build_wav_pipeline(&pipeline, source, sink)?;
+
+        let (tx, _rx) = async_channel::unbounded();
+        let ripping = Arc::new(RwLock::new(true));
+        extract_track(&pipeline, "track", &tx, ripping)?;
+
+        assert!(Path::new(dest).exists());
+        assert!(Path::new(dest).is_file());
+        verify_file_type(dest, &FileType::Wav)?;
         remove_file(dest)?;
         Ok(())
     }

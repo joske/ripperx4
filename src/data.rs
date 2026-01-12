@@ -55,10 +55,11 @@ pub enum Encoder {
     OGG,
     FLAC,
     OPUS,
+    WAV,
 }
 
 impl Encoder {
-    pub const OPTIONS: &[&str] = &["mp3", "ogg", "flac", "opus"];
+    pub const OPTIONS: &[&str] = &["mp3", "ogg", "flac", "opus", "wav"];
 
     pub fn from_index(idx: u32) -> Self {
         match idx {
@@ -66,6 +67,7 @@ impl Encoder {
             1 => Self::OGG,
             2 => Self::FLAC,
             3 => Self::OPUS,
+            4 => Self::WAV,
             _ => Self::default(),
         }
     }
@@ -76,6 +78,7 @@ impl Encoder {
             Self::OGG => 1,
             Self::FLAC => 2,
             Self::OPUS => 3,
+            Self::WAV => 4,
         }
     }
 
@@ -84,7 +87,12 @@ impl Encoder {
             Self::MP3 => ".mp3",
             Self::FLAC => ".flac",
             Self::OGG | Self::OPUS => ".ogg",
+            Self::WAV => ".wav",
         }
+    }
+
+    pub fn has_quality_setting(self) -> bool {
+        !matches!(self, Self::WAV)
     }
 }
 
@@ -293,11 +301,12 @@ mod test {
     #[test]
     fn encoder_options_matches_variant_count() {
         // Ensure OPTIONS array stays in sync with enum variants
-        assert_eq!(Encoder::OPTIONS.len(), 4);
+        assert_eq!(Encoder::OPTIONS.len(), 5);
         assert_eq!(Encoder::OPTIONS[0], "mp3");
         assert_eq!(Encoder::OPTIONS[1], "ogg");
         assert_eq!(Encoder::OPTIONS[2], "flac");
         assert_eq!(Encoder::OPTIONS[3], "opus");
+        assert_eq!(Encoder::OPTIONS[4], "wav");
     }
 
     #[test]

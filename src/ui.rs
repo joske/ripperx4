@@ -164,7 +164,15 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
             path_entry.set_text(&c.encode_path);
             encoder_combo.set_selected(c.encoder.to_index());
             quality_combo.set_selected(c.quality.to_index());
+            quality_combo.set_sensitive(c.encoder.has_quality_setting());
         }
+
+        // Disable quality dropdown when WAV is selected
+        let quality_for_encoder = quality_combo.clone();
+        encoder_combo.connect_selected_notify(move |combo| {
+            let encoder = Encoder::from_index(combo.selected());
+            quality_for_encoder.set_sensitive(encoder.has_quality_setting());
+        });
 
         // Path label and entry
         let path_box = Box::builder()
