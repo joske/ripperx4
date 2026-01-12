@@ -31,12 +31,12 @@ It is now almost feature complete, see below:
 - supports MP3, OGG, FLAC, OPUS and WAV
 - you can set quality options
 - sends notification when done
+- doesn't overwrite existing files without warning
 
 ## What is not supported (yet)
 
 - no support for multiple matches from musicbrainz (just takes the first match)
 - composer field
-- overwrites existing files with no warning
 
 ## Building
 

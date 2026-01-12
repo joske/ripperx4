@@ -63,15 +63,37 @@ impl TrackExtractor {
     }
 }
 
+/// Check which output files already exist for tracks marked for ripping
+pub fn check_existing_files(disc: &Disc) -> Vec<String> {
+    let config: Config = read_config();
+    disc.tracks
+        .iter()
+        .filter(|t| t.rip)
+        .filter_map(|track| {
+            let path = format_output_path(&config, disc, track);
+            if Path::new(&path).exists() {
+                Some(path)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 /// Extract/Rip a `Disc` to the configured format
-pub fn extract(disc: &Disc, status: &Sender<String>, ripping: &Arc<RwLock<bool>>) -> Result<()> {
+pub fn extract(
+    disc: &Disc,
+    status: &Sender<String>,
+    ripping: &Arc<RwLock<bool>>,
+    overwrite: bool,
+) -> Result<()> {
     for track in &disc.tracks {
         if !is_ripping(ripping) {
             debug!("Ripping aborted by user");
             break;
         }
         if track.rip {
-            let pipeline = create_pipeline(track, disc)?;
+            let pipeline = create_pipeline(track, disc, overwrite)?;
             extract_track(&pipeline, &track.title, status, ripping.clone())?;
         }
     }
@@ -224,12 +246,12 @@ fn calculate_progress(pipeline: &Pipeline) -> f64 {
 }
 
 /// Create a `GStreamer` pipeline for encoding a track
-fn create_pipeline(track: &Track, disc: &Disc) -> Result<Pipeline> {
+fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<Pipeline> {
     let config: Config = read_config();
 
     let extractor = create_cd_source(track.number)?;
     let tags = build_tags(track, disc)?;
-    let output_path = build_output_path(&config, disc, track)?;
+    let output_path = build_output_path(&config, disc, track, overwrite)?;
     let sink = create_file_sink(&output_path)?;
 
     let pipeline = Pipeline::new();
@@ -281,16 +303,30 @@ fn build_tags(track: &Track, disc: &Disc) -> Result<TagList> {
     Ok(tags)
 }
 
-/// Build the output file path and ensure directory exists
-fn build_output_path(config: &Config, disc: &Disc, track: &Track) -> Result<String> {
+/// Format the output file path without any checks
+fn format_output_path(config: &Config, disc: &Disc, track: &Track) -> String {
     let extension = config.encoder.file_extension();
     let artist = sanitize_path_component(&disc.artist);
     let album = sanitize_path_component(&disc.title);
     let title = sanitize_path_component(&track.title);
-    let path = format!(
+    format!(
         "{}/{}-{}/{} - {}{}",
         config.encode_path, artist, album, track.number, title, extension
-    );
+    )
+}
+
+/// Build the output file path and ensure directory exists
+fn build_output_path(
+    config: &Config,
+    disc: &Disc,
+    track: &Track,
+    overwrite: bool,
+) -> Result<String> {
+    let path = format_output_path(config, disc, track);
+
+    if !overwrite && Path::new(&path).exists() {
+        return Err(anyhow!("File already exists: {path}"));
+    }
 
     let parent = Path::new(&path)
         .parent()

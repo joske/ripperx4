@@ -1,6 +1,6 @@
 use crate::{
     data::{Config, Data, Encoder, Quality},
-    ripper::extract,
+    ripper::{check_existing_files, extract},
     util::{lookup_disc, read_config, scan_disc, write_config},
 };
 use glib::{Type, prelude::IsA};
@@ -38,6 +38,7 @@ fn format_duration(seconds: u64) -> String {
 }
 
 /// Wrapper for buttons that manages state together
+#[derive(Clone)]
 struct ButtonGroup {
     scan: Button,
     stop: Button,
@@ -116,7 +117,7 @@ pub fn build(app: &Application) {
     handle_scan(&data.clone(), &builder, &window);
     handle_config(&builder, &window);
     handle_stop(ripping.clone(), data.clone(), &builder);
-    handle_go(app, ripping, data, &builder);
+    handle_go(app, ripping, data, &builder, &window);
 }
 
 fn handle_config(builder: &Builder, window: &ApplicationWindow) {
@@ -671,6 +672,7 @@ fn handle_go(
     ripping_arc: Arc<RwLock<bool>>,
     data: Arc<RwLock<Data>>,
     builder: &Builder,
+    window: &ApplicationWindow,
 ) {
     let Some(buttons) = ButtonGroup::from_builder(builder) else {
         return;
@@ -687,6 +689,7 @@ fn handle_go(
     let scan_button = buttons.scan.clone();
     let config_button = buttons.config.clone();
     let data_for_notify = data.clone();
+    let window = window.clone();
 
     let go_clone = go_button.clone();
     go_clone.connect_clicked(glib::clone!(
@@ -697,72 +700,168 @@ fn handle_go(
         #[weak]
         track_view,
         move |_| {
-            let Ok(mut ripping) = ripping_arc.write() else {
-                return;
+            // Check for existing files first
+            let existing_files = data
+                .read()
+                .ok()
+                .and_then(|d| d.disc.as_ref().map(check_existing_files))
+                .unwrap_or_default();
+
+            let do_rip = {
+                let buttons = buttons.clone();
+                let ripping_arc = ripping_arc.clone();
+                let status = status.clone();
+                let track_view = track_view.clone();
+                let data = data.clone();
+                let app = app.clone();
+                let data_for_notify = data_for_notify.clone();
+                let go_button = go_button.clone();
+                let stop_button = stop_button.clone();
+                let scan_button = scan_button.clone();
+                let config_button = config_button.clone();
+                move |overwrite: bool| {
+                    start_ripping(
+                        overwrite,
+                        &buttons,
+                        &ripping_arc,
+                        &status,
+                        &track_view,
+                        &data,
+                        &app,
+                        &data_for_notify,
+                        &go_button,
+                        &stop_button,
+                        &scan_button,
+                        &config_button,
+                    );
+                }
             };
 
-            buttons.set_ripping(true);
-            *ripping = true;
-            track_view.set_sensitive(false);
-
-            let context_id = status.context_id("ripping");
-            let (tx, rx) = async_channel::unbounded();
-            let ripping_clone = ripping_arc.clone();
-
-            thread::spawn(glib::clone!(
-                #[weak]
-                data,
-                move || {
-                    let result = data.read().ok().and_then(|d| {
-                        d.disc
-                            .as_ref()
-                            .map(|disc| extract(disc, &tx, &ripping_clone))
-                    });
-
-                    match result {
-                        Some(Ok(())) => {
-                            debug!("done");
-                            let _ = tx.send_blocking("done".to_owned());
-                        }
-                        Some(Err(e)) => {
-                            debug!("Error: {e}");
-                            let _ = tx.send_blocking("aborted".to_owned());
-                        }
-                        None => {
-                            let _ = tx.send_blocking("aborted".to_owned());
-                        }
-                    }
-                }
-            ));
-
-            let scan_btn = scan_button.clone();
-            let go_btn = go_button.clone();
-            let stop_btn = stop_button.clone();
-            let config_btn = config_button.clone();
-            let notify_data = data_for_notify.clone();
-            let notify_app = app.clone();
-            let track_view_done = track_view.clone();
-
-            glib::spawn_future_local(async move {
-                while let Ok(msg) = rx.recv().await {
-                    status.remove_all(context_id);
-                    status.push(context_id, &msg);
-
-                    if msg == "done" || msg == "aborted" {
-                        scan_btn.set_sensitive(true);
-                        go_btn.set_sensitive(true);
-                        stop_btn.set_sensitive(false);
-                        config_btn.set_sensitive(true);
-                        track_view_done.set_sensitive(true);
-                        if msg == "done" {
-                            notify_rip_complete(&notify_app, &notify_data);
-                        }
-                        break;
-                    }
-                }
-            });
+            if existing_files.is_empty() {
+                do_rip(false);
+            } else {
+                show_overwrite_dialog(&existing_files, &window, do_rip);
+            }
         }
     ));
+}
+
+fn show_overwrite_dialog(
+    existing_files: &[String],
+    window: &ApplicationWindow,
+    on_overwrite: impl Fn(bool) + 'static,
+) {
+    let count = existing_files.len();
+    let message = if count == 1 {
+        format!(
+            "1 file already exists:\n{}\n\nWhat would you like to do?",
+            existing_files[0]
+        )
+    } else {
+        format!("{count} files already exist. What would you like to do?")
+    };
+
+    let dialog = MessageDialog::builder()
+        .title("Files Exist")
+        .modal(true)
+        .message_type(MessageType::Question)
+        .text(&message)
+        .transient_for(window)
+        .build();
+
+    dialog.add_button("Cancel", gtk::ResponseType::Cancel);
+    dialog.add_button("Overwrite", gtk::ResponseType::Accept);
+
+    dialog.connect_response(move |dialog, response| {
+        dialog.close();
+        if response == gtk::ResponseType::Accept {
+            on_overwrite(true);
+        }
+    });
+
+    dialog.show();
+}
+
+#[allow(clippy::too_many_arguments)]
+fn start_ripping(
+    overwrite: bool,
+    buttons: &ButtonGroup,
+    ripping_arc: &Arc<RwLock<bool>>,
+    status: &Statusbar,
+    track_view: &TreeView,
+    data: &Arc<RwLock<Data>>,
+    app: &Application,
+    data_for_notify: &Arc<RwLock<Data>>,
+    go_button: &Button,
+    stop_button: &Button,
+    scan_button: &Button,
+    config_button: &Button,
+) {
+    let Ok(mut ripping) = ripping_arc.write() else {
+        return;
+    };
+
+    buttons.set_ripping(true);
+    *ripping = true;
+    track_view.set_sensitive(false);
+
+    let context_id = status.context_id("ripping");
+    let (tx, rx) = async_channel::unbounded();
+    let ripping_clone = ripping_arc.clone();
+
+    thread::spawn(glib::clone!(
+        #[weak]
+        data,
+        move || {
+            let result = data.read().ok().and_then(|d| {
+                d.disc
+                    .as_ref()
+                    .map(|disc| extract(disc, &tx, &ripping_clone, overwrite))
+            });
+
+            match result {
+                Some(Ok(())) => {
+                    debug!("done");
+                    let _ = tx.send_blocking("done".to_owned());
+                }
+                Some(Err(e)) => {
+                    debug!("Error: {e}");
+                    let _ = tx.send_blocking(format!("Error: {e}"));
+                }
+                None => {
+                    let _ = tx.send_blocking("aborted".to_owned());
+                }
+            }
+        }
+    ));
+
+    let scan_btn = scan_button.clone();
+    let go_btn = go_button.clone();
+    let stop_btn = stop_button.clone();
+    let config_btn = config_button.clone();
+    let notify_data = data_for_notify.clone();
+    let notify_app = app.clone();
+    let track_view_done = track_view.clone();
+    let status_clone = status.clone();
+
+    glib::spawn_future_local(async move {
+        while let Ok(msg) = rx.recv().await {
+            status_clone.remove_all(context_id);
+            status_clone.push(context_id, &msg);
+
+            if msg == "done" || msg == "aborted" {
+                scan_btn.set_sensitive(true);
+                go_btn.set_sensitive(true);
+                stop_btn.set_sensitive(false);
+                config_btn.set_sensitive(true);
+                track_view_done.set_sensitive(true);
+                if msg == "done" {
+                    notify_rip_complete(&notify_app, &notify_data);
+                }
+                break;
+            }
+        }
+    });
 }
 
 fn notify_rip_complete(app: &Application, data: &Arc<RwLock<Data>>) {
