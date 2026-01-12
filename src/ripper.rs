@@ -590,14 +590,26 @@ mod test {
         Ok(bin.upcast())
     }
 
-    fn create_test_sink(dest: &str) -> Result<Element> {
-        let sink = ElementFactory::make("filesink").build()?;
-        sink.set_property("location", dest);
-        Ok(sink)
+    struct TestPipeline {
+        pipeline: Pipeline,
+        source: Element,
+        sink: Element,
+        tags: gstreamer::TagList,
     }
 
-    fn create_empty_tags() -> gstreamer::TagList {
-        gstreamer::TagList::new()
+    fn setup_test_pipeline(dest: &str) -> Result<TestPipeline> {
+        gstreamer::init()?;
+        let pipeline = Pipeline::new();
+        let source = create_test_source()?;
+        let sink = ElementFactory::make("filesink").build()?;
+        sink.set_property("location", dest);
+        let tags = gstreamer::TagList::new();
+        Ok(TestPipeline {
+            pipeline,
+            source,
+            sink,
+            tags,
+        })
     }
 
     /// Verify file type by checking magic bytes
@@ -661,22 +673,16 @@ mod test {
     #[test]
     #[serial]
     pub fn test_mp3() -> Result<()> {
-        gstreamer::init()?;
-
-        let pipeline = Pipeline::new();
-        let source = create_test_source()?;
         let dest = "/tmp/test_audio.mp3";
-        let sink = create_test_sink(dest)?;
-        let tags = create_empty_tags();
+        let t = setup_test_pipeline(dest)?;
 
-        build_mp3_pipeline(&pipeline, source, sink, &tags, Quality::Medium)?;
+        build_mp3_pipeline(&t.pipeline, t.source, t.sink, &t.tags, Quality::Medium)?;
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(&pipeline, "track", &tx, ripping)?;
+        extract_track(&t.pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
-        assert!(Path::new(dest).is_file());
         verify_file_type(dest, &FileType::Mp3)?;
         remove_file(dest)?;
         Ok(())
@@ -685,22 +691,16 @@ mod test {
     #[test]
     #[serial]
     pub fn test_flac() -> Result<()> {
-        gstreamer::init()?;
-
-        let pipeline = Pipeline::new();
-        let source = create_test_source()?;
         let dest = "/tmp/test_audio.flac";
-        let sink = create_test_sink(dest)?;
-        let tags = create_empty_tags();
+        let t = setup_test_pipeline(dest)?;
 
-        build_flac_pipeline(&pipeline, source, sink, &tags, Quality::Medium)?;
+        build_flac_pipeline(&t.pipeline, t.source, t.sink, &t.tags, Quality::Medium)?;
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(&pipeline, "track", &tx, ripping)?;
+        extract_track(&t.pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
-        assert!(Path::new(dest).is_file());
         verify_file_type(dest, &FileType::Flac)?;
         remove_file(dest)?;
         Ok(())
@@ -709,22 +709,16 @@ mod test {
     #[test]
     #[serial]
     pub fn test_opus() -> Result<()> {
-        gstreamer::init()?;
-
-        let pipeline = Pipeline::new();
-        let source = create_test_source()?;
         let dest = "/tmp/test_audio_opus.ogg";
-        let sink = create_test_sink(dest)?;
-        let tags = create_empty_tags();
+        let t = setup_test_pipeline(dest)?;
 
-        build_opus_pipeline(&pipeline, source, sink, &tags, Quality::Medium)?;
+        build_opus_pipeline(&t.pipeline, t.source, t.sink, &t.tags, Quality::Medium)?;
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(&pipeline, "track", &tx, ripping)?;
+        extract_track(&t.pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
-        assert!(Path::new(dest).is_file());
         verify_file_type(dest, &FileType::Ogg)?;
         remove_file(dest)?;
         Ok(())
@@ -733,22 +727,16 @@ mod test {
     #[test]
     #[serial]
     pub fn test_ogg() -> Result<()> {
-        gstreamer::init()?;
-
-        let pipeline = Pipeline::new();
-        let source = create_test_source()?;
         let dest = "/tmp/test_audio.ogg";
-        let sink = create_test_sink(dest)?;
-        let tags = create_empty_tags();
+        let t = setup_test_pipeline(dest)?;
 
-        build_ogg_pipeline(&pipeline, source, sink, &tags, Quality::Medium)?;
+        build_ogg_pipeline(&t.pipeline, t.source, t.sink, &t.tags, Quality::Medium)?;
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(&pipeline, "track", &tx, ripping)?;
+        extract_track(&t.pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
-        assert!(Path::new(dest).is_file());
         verify_file_type(dest, &FileType::Ogg)?;
         remove_file(dest)?;
         Ok(())
@@ -757,21 +745,16 @@ mod test {
     #[test]
     #[serial]
     pub fn test_wav() -> Result<()> {
-        gstreamer::init()?;
-
-        let pipeline = Pipeline::new();
-        let source = create_test_source()?;
         let dest = "/tmp/test_audio.wav";
-        let sink = create_test_sink(dest)?;
+        let t = setup_test_pipeline(dest)?;
 
-        build_wav_pipeline(&pipeline, source, sink)?;
+        build_wav_pipeline(&t.pipeline, t.source, t.sink)?;
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(&pipeline, "track", &tx, ripping)?;
+        extract_track(&t.pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
-        assert!(Path::new(dest).is_file());
         verify_file_type(dest, &FileType::Wav)?;
         remove_file(dest)?;
         Ok(())
