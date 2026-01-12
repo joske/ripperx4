@@ -1,12 +1,14 @@
-use std::ffi::{CStr, CString};
-use std::ptr;
+use std::{
+    ffi::{CStr, CString},
+    ptr,
+};
 
 use discid::DiscId;
 use libcdio_sys::{
-    cdio_destroy, cdio_get_cdtext, cdio_get_first_track_num, cdio_get_num_tracks, cdio_open,
-    cdtext_field_t_CDTEXT_FIELD_COMPOSER, cdtext_field_t_CDTEXT_FIELD_GENRE,
+    CdIo_t, cdio_destroy, cdio_get_cdtext, cdio_get_first_track_num, cdio_get_num_tracks,
+    cdio_open, cdtext_field_t_CDTEXT_FIELD_COMPOSER, cdtext_field_t_CDTEXT_FIELD_GENRE,
     cdtext_field_t_CDTEXT_FIELD_PERFORMER, cdtext_field_t_CDTEXT_FIELD_TITLE, cdtext_get_const,
-    driver_id_t_DRIVER_UNKNOWN, CdIo_t,
+    driver_id_t_DRIVER_UNKNOWN,
 };
 use log::{debug, info};
 
@@ -98,8 +100,7 @@ pub fn read_cdtext() -> Option<Disc> {
             get_cdtext_field(cdio.ptr, cdtext_field_t_CDTEXT_FIELD_PERFORMER, track_num)
                 .unwrap_or_else(|| artist.clone());
 
-        let composer =
-            get_cdtext_field(cdio.ptr, cdtext_field_t_CDTEXT_FIELD_COMPOSER, track_num);
+        let composer = get_cdtext_field(cdio.ptr, cdtext_field_t_CDTEXT_FIELD_COMPOSER, track_num);
 
         tracks.push(Track {
             number: u32::from(track_num),
