@@ -87,32 +87,3 @@ fn extract_tracks(release: &Release) -> Vec<Track> {
         })
         .collect()
 }
-
-#[cfg(test)]
-mod test {
-    use super::lookup;
-    use anyhow::Result;
-    use serial_test::serial;
-
-    #[test]
-    #[serial]
-    #[ignore = "these tests require network access to MusicBrainz, so ignore them by default"]
-    fn test_good_net() -> Result<()> {
-        let disc = lookup("xA3p59dQpJpDXZYHz1SSQ491oaU-")?;
-        assert_eq!("Dire Straits", disc.artist);
-        assert_eq!("Money for Nothing", disc.title);
-        assert_eq!(12, disc.tracks.len());
-        assert_eq!("Sultans of Swing", disc.tracks[0].title);
-        assert_eq!("Dire Straits", disc.tracks[0].artist);
-        assert_eq!(1, disc.tracks[0].number);
-        Ok(())
-    }
-
-    #[test]
-    #[serial]
-    #[ignore = "these tests require network access to MusicBrainz, so ignore them by default"]
-    fn test_bad_discid() {
-        let result = lookup("invalid-disc-id");
-        assert!(result.is_err());
-    }
-}

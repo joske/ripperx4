@@ -28,7 +28,6 @@ simplelog = "0.12"
 gnudb = "0.4"
 
 [dev-dependencies]
-serial_test = "3.2"
 
 [build-dependencies]
 glib-build-tools = "0.21"
