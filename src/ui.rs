@@ -5,9 +5,9 @@ use crate::{
 };
 use glib::{Type, prelude::IsA};
 use gtk::{
-    Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, Dialog, DropDown,
-    Entry, Frame, ListStore, MessageDialog, MessageType, Orientation, Picture, Separator,
-    Statusbar, TreeView, gio, prelude::*,
+    Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, CheckButton,
+    Dialog, DropDown, Entry, Frame, ListStore, MessageDialog, MessageType, Orientation, Picture,
+    Separator, Statusbar, TreeView, gio, prelude::*,
 };
 use log::{debug, warn};
 use std::{
@@ -35,6 +35,18 @@ fn format_duration(seconds: u64) -> String {
     let minutes = seconds / 60;
     let secs = seconds % 60;
     format!("{minutes}:{secs:02}")
+}
+
+fn eject_cd() {
+    let result = if cfg!(target_os = "macos") {
+        Command::new("drutil").arg("eject").output()
+    } else {
+        Command::new("eject").output()
+    };
+    match result {
+        Ok(_) => debug!("CDROM ejected"),
+        Err(e) => warn!("Failed to eject CDROM: {e}"),
+    }
 }
 
 /// Wrapper for buttons that manages state together
@@ -202,6 +214,15 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
         quality_box.append(&quality_combo);
         child.append(&quality_box);
 
+        // Eject when done checkbox
+        let eject_check = CheckButton::builder()
+            .label("Eject CD when finished")
+            .build();
+        if let Ok(c) = config.read() {
+            eject_check.set_active(c.eject_when_done);
+        }
+        child.append(&eject_check);
+
         let separator = Separator::builder().vexpand(true).build();
         child.append(&separator);
 
@@ -232,6 +253,7 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
                     cfg.encode_path = path_entry.text().to_string();
                     cfg.encoder = Encoder::from_index(encoder_combo.selected());
                     cfg.quality = Quality::from_index(quality_combo.selected());
+                    cfg.eject_when_done = eject_check.is_active();
                     write_config(&cfg);
                 }
                 dialog.close();
@@ -511,15 +533,7 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
     // Eject button handler
     if let Some(eject_button) = get_widget::<Button>(builder, "eject_button") {
         eject_button.connect_clicked(move |_| {
-            let result = if cfg!(target_os = "macos") {
-                Command::new("drutil").arg("eject").output()
-            } else {
-                Command::new("eject").output()
-            };
-            match result {
-                Ok(_) => debug!("CDROM ejected"),
-                Err(e) => warn!("Failed to eject CDROM: {e}"),
-            }
+            eject_cd();
         });
     }
 
@@ -857,6 +871,9 @@ fn start_ripping(
                 track_view_done.set_sensitive(true);
                 if msg == "done" {
                     notify_rip_complete(&notify_app, &notify_data);
+                    if read_config().eject_when_done {
+                        eject_cd();
+                    }
                 }
                 break;
             }

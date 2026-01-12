@@ -96,6 +96,7 @@ mod test {
             encoder: Encoder::FLAC,
             quality: Quality::High,
             fake_cdrom: true,
+            eject_when_done: true,
         };
 
         // Write and read back
@@ -107,6 +108,7 @@ mod test {
         assert_eq!(loaded.encoder, test_config.encoder);
         assert_eq!(loaded.quality, test_config.quality);
         assert_eq!(loaded.fake_cdrom, test_config.fake_cdrom);
+        assert_eq!(loaded.eject_when_done, test_config.eject_when_done);
 
         // Restore original config
         write_config(&original);

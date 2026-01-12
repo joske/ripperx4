@@ -166,6 +166,8 @@ pub struct Config {
     pub encoder: Encoder,
     pub quality: Quality,
     pub fake_cdrom: bool,
+    #[serde(default)]
+    pub eject_when_done: bool,
 }
 
 impl Default for Config {
@@ -177,6 +179,7 @@ impl Default for Config {
             encoder: Encoder::MP3,
             quality: Quality::Medium,
             fake_cdrom: false,
+            eject_when_done: false,
         }
     }
 }
@@ -249,6 +252,7 @@ mod test {
         assert_eq!(config.encoder, Encoder::MP3);
         assert_eq!(config.quality, Quality::Medium);
         assert!(!config.fake_cdrom);
+        assert!(!config.eject_when_done);
     }
 
     // ==================== Edge case tests ====================
