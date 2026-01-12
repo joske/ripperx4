@@ -168,6 +168,8 @@ pub struct Config {
     pub fake_cdrom: bool,
     #[serde(default)]
     pub eject_when_done: bool,
+    #[serde(default)]
+    pub create_playlist: bool,
 }
 
 impl Default for Config {
@@ -180,6 +182,7 @@ impl Default for Config {
             quality: Quality::Medium,
             fake_cdrom: false,
             eject_when_done: false,
+            create_playlist: false,
         }
     }
 }
@@ -253,6 +256,7 @@ mod test {
         assert_eq!(config.quality, Quality::Medium);
         assert!(!config.fake_cdrom);
         assert!(!config.eject_when_done);
+        assert!(!config.create_playlist);
     }
 
     // ==================== Edge case tests ====================

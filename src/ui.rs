@@ -1,6 +1,6 @@
 use crate::{
     data::{Config, Data, Encoder, Quality},
-    ripper::{check_existing_files, extract},
+    ripper::{check_existing_files, create_playlist, extract},
     util::{lookup_disc, read_config, scan_disc, write_config},
 };
 use glib::{Type, prelude::IsA};
@@ -132,6 +132,7 @@ pub fn build(app: &Application) {
     handle_go(app, ripping, data, &builder, &window);
 }
 
+#[allow(clippy::too_many_lines)]
 fn handle_config(builder: &Builder, window: &ApplicationWindow) {
     let Some(config_button) = get_widget::<Button>(builder, "config_button") else {
         return;
@@ -223,6 +224,15 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
         }
         child.append(&eject_check);
 
+        // Create playlist checkbox
+        let playlist_check = CheckButton::builder()
+            .label("Create M3U playlist")
+            .build();
+        if let Ok(c) = config.read() {
+            playlist_check.set_active(c.create_playlist);
+        }
+        child.append(&playlist_check);
+
         let separator = Separator::builder().vexpand(true).build();
         child.append(&separator);
 
@@ -254,6 +264,7 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
                     cfg.encoder = Encoder::from_index(encoder_combo.selected());
                     cfg.quality = Quality::from_index(quality_combo.selected());
                     cfg.eject_when_done = eject_check.is_active();
+                    cfg.create_playlist = playlist_check.is_active();
                     write_config(&cfg);
                 }
                 dialog.close();
@@ -871,7 +882,15 @@ fn start_ripping(
                 track_view_done.set_sensitive(true);
                 if msg == "done" {
                     notify_rip_complete(&notify_app, &notify_data);
-                    if read_config().eject_when_done {
+                    let config = read_config();
+                    if config.create_playlist
+                        && let Ok(data) = notify_data.read()
+                        && let Some(disc) = &data.disc
+                        && let Err(e) = create_playlist(disc)
+                    {
+                        warn!("Failed to create playlist: {e}");
+                    }
+                    if config.eject_when_done {
                         eject_cd();
                     }
                 }

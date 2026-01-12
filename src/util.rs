@@ -97,6 +97,7 @@ mod test {
             quality: Quality::High,
             fake_cdrom: true,
             eject_when_done: true,
+            create_playlist: true,
         };
 
         // Write and read back
@@ -109,6 +110,7 @@ mod test {
         assert_eq!(loaded.quality, test_config.quality);
         assert_eq!(loaded.fake_cdrom, test_config.fake_cdrom);
         assert_eq!(loaded.eject_when_done, test_config.eject_when_done);
+        assert_eq!(loaded.create_playlist, test_config.create_playlist);
 
         // Restore original config
         write_config(&original);

@@ -17,6 +17,7 @@ use gstreamer::{
 };
 use log::{debug, error};
 use std::{
+    fmt::Write,
     path::Path,
     sync::{
         Arc, RwLock,
@@ -315,6 +316,42 @@ fn format_output_path(config: &Config, disc: &Disc, track: &Track) -> String {
     )
 }
 
+/// Generate M3U playlist content for the given disc
+fn generate_playlist_content(disc: &Disc, extension: &str) -> String {
+    let mut content = String::from("#EXTM3U\n");
+    for track in &disc.tracks {
+        if track.rip {
+            let title = sanitize_path_component(&track.title);
+            let filename = format!("{} - {}{}", track.number, title, extension);
+            // #EXTINF:duration,Artist - Title
+            let _ = writeln!(
+                content,
+                "#EXTINF:{},{} - {}\n{}",
+                track.duration, disc.artist, track.title, filename
+            );
+        }
+    }
+    content
+}
+
+/// Create an M3U playlist file for the ripped tracks
+pub fn create_playlist(disc: &Disc) -> Result<()> {
+    let config = read_config();
+    let artist = sanitize_path_component(&disc.artist);
+    let album = sanitize_path_component(&disc.title);
+    let extension = config.encoder.file_extension();
+
+    let playlist_path = format!(
+        "{}/{}-{}/{}.m3u",
+        config.encode_path, artist, album, album
+    );
+
+    let content = generate_playlist_content(disc, extension);
+    std::fs::write(&playlist_path, content)?;
+    debug!("Created playlist: {playlist_path}");
+    Ok(())
+}
+
 /// Build the output file path and ensure directory exists
 fn build_output_path(
     config: &Config,
@@ -470,7 +507,7 @@ mod test {
 
     use super::{
         build_flac_pipeline, build_mp3_pipeline, build_ogg_pipeline, build_opus_pipeline,
-        build_wav_pipeline, extract_track, sanitize_path_component,
+        build_wav_pipeline, extract_track, generate_playlist_content, sanitize_path_component,
     };
     use crate::data::{Disc, Quality, Track};
 
@@ -783,5 +820,93 @@ mod test {
         verify_file_type(dest, &FileType::Wav)?;
         remove_file(dest)?;
         Ok(())
+    }
+
+    // ==================== Playlist tests ====================
+
+    #[test]
+    fn generate_playlist_creates_valid_m3u() {
+        let disc = Disc {
+            title: "Test Album".to_string(),
+            artist: "Test Artist".to_string(),
+            year: Some(2024),
+            genre: Some("Rock".to_string()),
+            tracks: vec![
+                Track {
+                    number: 1,
+                    title: "First Song".to_string(),
+                    artist: "Test Artist".to_string(),
+                    duration: 180,
+                    composer: None,
+                    rip: true,
+                },
+                Track {
+                    number: 2,
+                    title: "Second Song".to_string(),
+                    artist: "Test Artist".to_string(),
+                    duration: 240,
+                    composer: None,
+                    rip: true,
+                },
+                Track {
+                    number: 3,
+                    title: "Skipped Song".to_string(),
+                    artist: "Test Artist".to_string(),
+                    duration: 200,
+                    composer: None,
+                    rip: false, // This track should be excluded
+                },
+            ],
+        };
+
+        let content = generate_playlist_content(&disc, ".mp3");
+
+        assert!(content.starts_with("#EXTM3U\n"));
+        assert!(content.contains("#EXTINF:180,Test Artist - First Song"));
+        assert!(content.contains("1 - First Song.mp3"));
+        assert!(content.contains("#EXTINF:240,Test Artist - Second Song"));
+        assert!(content.contains("2 - Second Song.mp3"));
+        // Track 3 should NOT be in the playlist (rip=false)
+        assert!(!content.contains("Skipped Song"));
+    }
+
+    #[test]
+    fn generate_playlist_handles_empty_tracks() {
+        let disc = Disc {
+            title: "Empty Album".to_string(),
+            artist: "Artist".to_string(),
+            year: None,
+            genre: None,
+            tracks: vec![],
+        };
+
+        let content = generate_playlist_content(&disc, ".flac");
+
+        assert_eq!(content, "#EXTM3U\n");
+    }
+
+    #[test]
+    fn generate_playlist_sanitizes_filenames() {
+        let disc = Disc {
+            title: "Album".to_string(),
+            artist: "AC/DC".to_string(),
+            year: None,
+            genre: None,
+            tracks: vec![Track {
+                number: 1,
+                title: "Highway to Hell".to_string(),
+                artist: "AC/DC".to_string(),
+                duration: 208,
+                composer: None,
+                rip: true,
+            }],
+        };
+
+        let content = generate_playlist_content(&disc, ".mp3");
+
+        // Filename should be sanitized (no slashes)
+        assert!(content.contains("1 - Highway to Hell.mp3"));
+        // But EXTINF should have original artist name
+        assert!(content.contains("#EXTINF:208,AC/DC - Highway to Hell"));
     }
 }
