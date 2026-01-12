@@ -6,6 +6,8 @@
   <object class="GtkApplicationWindow" id="window">
     <property name="default-height">600</property>
     <property name="default-width">500</property>
+    <property name="width-request">520</property>
+    <property name="height-request">300</property>
     <child>
       <object class="GtkBox">
         <property name="orientation">vertical</property>
@@ -16,9 +18,9 @@
             <property name="height_request">60</property>
             <child>
               <object class="GtkPicture" id="logo_picture">
-                <property name="height_request">60</property>
-                <property name="hexpand">True</property>
-                <property name="content-fit">fill</property>
+                <property name="width-request">133</property>
+                <property name="height-request">60</property>
+                <property name="content-fit">contain</property>
                 <property name="can-shrink">False</property>
               </object>
             </child>
@@ -28,8 +30,9 @@
                   <object class="GtkButton" id="config_button">
                     <child>
                       <object class="GtkPicture" id="config_picture">
-                        <property name="hexpand">True</property>
-                        <property name="content-fit">fill</property>
+                        <property name="width-request">48</property>
+                        <property name="height-request">60</property>
+                        <property name="content-fit">contain</property>
                         <property name="can-shrink">False</property>
                       </object>
                     </child>
@@ -39,8 +42,9 @@
                   <object class="GtkButton" id="scan_button">
                     <child>
                       <object class="GtkPicture" id="scan_picture">
-                        <property name="hexpand">True</property>
-                        <property name="content-fit">fill</property>
+                        <property name="width-request">48</property>
+                        <property name="height-request">60</property>
+                        <property name="content-fit">contain</property>
                         <property name="can-shrink">False</property>
                       </object>
                     </child>
@@ -50,8 +54,9 @@
                   <object class="GtkButton" id="stop_button">
                     <child>
                       <object class="GtkPicture" id="stop_picture">
-                        <property name="hexpand">True</property>
-                        <property name="content-fit">fill</property>
+                        <property name="width-request">48</property>
+                        <property name="height-request">60</property>
+                        <property name="content-fit">contain</property>
                         <property name="can-shrink">False</property>
                       </object>
                     </child>
@@ -61,19 +66,26 @@
                   <object class="GtkButton" id="go_button">
                     <child>
                       <object class="GtkPicture" id="go_picture">
-                        <property name="hexpand">True</property>
-                        <property name="content-fit">fill</property>
+                        <property name="width-request">48</property>
+                        <property name="height-request">60</property>
+                        <property name="content-fit">contain</property>
                         <property name="can-shrink">False</property>
                       </object>
                     </child>
                   </object>
                 </child>
                 <child>
+                  <object class="GtkBox">
+                    <property name="hexpand">True</property>
+                  </object>
+                </child>
+                <child>
                   <object class="GtkButton" id="exit">
                     <child>
                       <object class="GtkPicture" id="exit_picture">
-                        <property name="hexpand">True</property>
-                        <property name="content-fit">fill</property>
+                        <property name="width-request">48</property>
+                        <property name="height-request">60</property>
+                        <property name="content-fit">contain</property>
                         <property name="can-shrink">False</property>
                       </object>
                     </child>
