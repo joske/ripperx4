@@ -424,7 +424,6 @@ fn build_wav_pipeline(pipeline: &Pipeline, source: Element, sink: Element) -> Re
 mod test {
     use anyhow::{Result, anyhow};
     use gstreamer::{Bin, Element, ElementFactory, GhostPad, Pipeline, prelude::*};
-    use serial_test::serial;
     use std::{
         env,
         fs::{File, remove_file},
@@ -499,10 +498,7 @@ mod test {
         assert_eq!(sanitize_path_component("日本語"), "___");
     }
 
-    // ==================== build_tags tests ====================
-
     #[test]
-    #[serial]
     fn build_tags_includes_all_metadata() -> Result<()> {
         gstreamer::init()?;
 
@@ -531,7 +527,6 @@ mod test {
     }
 
     #[test]
-    #[serial]
     fn build_tags_handles_missing_optional_fields() -> Result<()> {
         gstreamer::init()?;
 
@@ -646,7 +641,6 @@ mod test {
     }
 
     #[test]
-    #[serial]
     pub fn test_bad_pipeline() -> Result<()> {
         gstreamer::init()?;
         let mut path = env::var("CARGO_MANIFEST_DIR")?;
@@ -671,7 +665,6 @@ mod test {
     }
 
     #[test]
-    #[serial]
     pub fn test_mp3() -> Result<()> {
         let dest = "/tmp/test_audio.mp3";
         let t = setup_test_pipeline(dest)?;
@@ -689,7 +682,6 @@ mod test {
     }
 
     #[test]
-    #[serial]
     pub fn test_flac() -> Result<()> {
         let dest = "/tmp/test_audio.flac";
         let t = setup_test_pipeline(dest)?;
@@ -707,7 +699,6 @@ mod test {
     }
 
     #[test]
-    #[serial]
     pub fn test_opus() -> Result<()> {
         let dest = "/tmp/test_audio_opus.ogg";
         let t = setup_test_pipeline(dest)?;
@@ -725,7 +716,6 @@ mod test {
     }
 
     #[test]
-    #[serial]
     pub fn test_ogg() -> Result<()> {
         let dest = "/tmp/test_audio.ogg";
         let t = setup_test_pipeline(dest)?;
@@ -743,7 +733,6 @@ mod test {
     }
 
     #[test]
-    #[serial]
     pub fn test_wav() -> Result<()> {
         let dest = "/tmp/test_audio.wav";
         let t = setup_test_pipeline(dest)?;
