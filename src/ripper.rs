@@ -341,10 +341,7 @@ pub fn create_playlist(disc: &Disc) -> Result<()> {
     let album = sanitize_path_component(&disc.title);
     let extension = config.encoder.file_extension();
 
-    let playlist_path = format!(
-        "{}/{}-{}/{}.m3u",
-        config.encode_path, artist, album, album
-    );
+    let playlist_path = format!("{}/{}-{}/{}.m3u", config.encode_path, artist, album, album);
 
     let content = generate_playlist_content(disc, extension);
     std::fs::write(&playlist_path, content)?;

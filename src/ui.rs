@@ -5,9 +5,9 @@ use crate::{
 };
 use glib::{Type, prelude::IsA};
 use gtk::{
-    Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, CheckButton,
-    Dialog, DropDown, Entry, Frame, ListStore, MessageDialog, MessageType, Orientation, Picture,
-    Separator, Statusbar, TreeView, gio, prelude::*,
+    Align, Application, ApplicationWindow, Box, Builder, Button, ButtonsType, CheckButton, Dialog,
+    DropDown, Entry, Frame, ListStore, MessageDialog, MessageType, Orientation, Picture, Separator,
+    Statusbar, TreeView, gio, prelude::*,
 };
 use log::{debug, warn};
 use std::{
@@ -225,9 +225,7 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
         child.append(&eject_check);
 
         // Create playlist checkbox
-        let playlist_check = CheckButton::builder()
-            .label("Create M3U playlist")
-            .build();
+        let playlist_check = CheckButton::builder().label("Create M3U playlist").build();
         if let Ok(c) = config.read() {
             playlist_check.set_active(c.create_playlist);
         }
