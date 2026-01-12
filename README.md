@@ -30,11 +30,14 @@ It is now almost feature complete, see below:
 - you can select which tracks to rip
 - supports MP3, OGG, FLAC and OPUS
 - you can set quality options
+- sends notification when done
 
 ## What is not supported (yet)
 
 - no support for multiple matches from musicbrainz (just takes the first match)
 - composer field
+- overwrites existing files with no warning
+- no pure rip to wav (is this really needed?)
 
 ## Building
 
