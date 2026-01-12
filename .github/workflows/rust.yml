@@ -17,11 +17,11 @@ jobs:
           - os: macos-latest
             install: brew install gtk4 gstreamer libdiscid libcdio
             artifact: ripperx4-macos-arm64
-            pkg_config_path: /opt/homebrew/lib/pkgconfig
+            homebrew_prefix: /opt/homebrew
           - os: macos-15-intel
             install: brew install gtk4 gstreamer libdiscid libcdio
             artifact: ripperx4-macos-intel
-            pkg_config_path: /usr/local/lib/pkgconfig
+            homebrew_prefix: /usr/local
     steps:
       - uses: actions/checkout@v6
       - name: Install Rust
@@ -32,9 +32,12 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Install glib/gtk dev
         run: ${{ matrix.install }}
-      - name: Set PKG_CONFIG_PATH for macOS
+      - name: Set up Homebrew paths for macOS
         if: runner.os == 'macOS'
-        run: echo "PKG_CONFIG_PATH=${{ matrix.pkg_config_path }}" >> $GITHUB_ENV
+        run: |
+          echo "PKG_CONFIG_PATH=${{ matrix.homebrew_prefix }}/lib/pkgconfig" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=${{ matrix.homebrew_prefix }}/lib" >> $GITHUB_ENV
+          echo "BINDGEN_EXTRA_CLANG_ARGS=-I${{ matrix.homebrew_prefix }}/include" >> $GITHUB_ENV
       - name: check cargo fmt
         run: cargo fmt --all -- --check
       - name: check clippy
