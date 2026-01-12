@@ -11,6 +11,7 @@ use gtk::{
 };
 use log::{debug, warn};
 use std::{
+    process::Command,
     sync::{Arc, RwLock},
     thread,
 };
@@ -106,6 +107,9 @@ pub fn build(app: &Application) {
     }
     if let Some(go_button) = get_widget::<Button>(&builder, "go_button") {
         go_button.set_sensitive(false);
+    }
+    if let Some(select_all_button) = get_widget::<Button>(&builder, "select_all_button") {
+        select_all_button.set_sensitive(false);
     }
 
     handle_disc(data.clone(), &builder);
@@ -453,12 +457,70 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
         &[("text", 4)],
     ));
 
+    // Select All button handler
+    if let Some(select_all_button) = get_widget::<Button>(builder, "select_all_button") {
+        let store_for_select = store.clone();
+        let data_for_select = data.clone();
+        select_all_button.connect_clicked(move |_| {
+            // Determine if we should select or deselect all
+            let mut should_select = false;
+            if let Some(iter) = store_for_select.iter_first() {
+                loop {
+                    if let Ok(checked) = store_for_select.get_value(&iter, 0).get::<bool>()
+                        && !checked
+                    {
+                        should_select = true;
+                        break;
+                    }
+                    if !store_for_select.iter_next(&iter) {
+                        break;
+                    }
+                }
+            }
+
+            // Update data model
+            if let Ok(mut d) = data_for_select.write()
+                && let Some(disc) = d.disc.as_mut()
+            {
+                for track in &mut disc.tracks {
+                    track.rip = should_select;
+                }
+            }
+
+            // Update UI
+            if let Some(iter) = store_for_select.iter_first() {
+                loop {
+                    store_for_select.set_value(&iter, 0, &should_select.to_value());
+                    if !store_for_select.iter_next(&iter) {
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    // Eject button handler
+    if let Some(eject_button) = get_widget::<Button>(builder, "eject_button") {
+        eject_button.connect_clicked(move |_| {
+            let result = if cfg!(target_os = "macos") {
+                Command::new("drutil").arg("eject").output()
+            } else {
+                Command::new("eject").output()
+            };
+            match result {
+                Ok(_) => debug!("CDROM ejected"),
+                Err(e) => warn!("Failed to eject CDROM: {e}"),
+            }
+        });
+    }
+
     // Scan button click handler
     let scan_button_clone = scan_button.clone();
     let go_button_clone = go_button.clone();
     let stop_button_clone = stop_button.clone();
     let config_button_clone = config_button.clone();
     let exit_button_clone = exit_button.clone();
+    let select_all_button_clone = get_widget::<Button>(builder, "select_all_button");
     let store_clone = store.clone();
     let data_clone = data.clone();
     let title_entry_clone = title_entry.clone();
@@ -510,6 +572,7 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
         let genre_entry_for_handler = genre_entry_clone.clone();
         let window_for_handler = window_clone.clone();
         let go_button_for_handler = go_button_clone.clone();
+        let select_all_for_handler = select_all_button_clone.clone();
         let button_states_for_handler = button_states;
 
         glib::spawn_future_local(async move {
@@ -550,6 +613,10 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
                     }
 
                     go_button_for_handler.set_sensitive(true);
+
+                    if let Some(btn) = &select_all_for_handler {
+                        btn.set_sensitive(true);
+                    }
                 }
                 Ok(Err(err)) => {
                     debug!("Scan failed: {err}");
