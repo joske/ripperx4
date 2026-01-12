@@ -32,6 +32,13 @@ pub fn lookup_disc(discid: &DiscId) -> Disc {
     let id = discid.id();
     debug!("Looking up disc id={id}");
 
+    // Try CD-Text first (local, instant, no network required)
+    if let Some(disc) = crate::cdtext::read_cdtext() {
+        debug!("Found CD-Text: {} - {}", disc.artist, disc.title);
+        return disc;
+    }
+    debug!("No CD-Text found, trying network lookup");
+
     match crate::musicbrainz::lookup(&id) {
         Ok(disc) => {
             debug!("Found: {} - {}", disc.artist, disc.title);

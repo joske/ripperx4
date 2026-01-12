@@ -20,6 +20,7 @@ musicbrainz_rs = { version = "0.12", default-features = false, features = [
 ] }
 glib = "0.21"
 gstreamer = "0.24"
+libcdio-sys = "0.5"
 gtk = { package = "gtk4", version = "0.10", features = ["v4_8"] }
 home = "0.5"
 log = "0.4"

@@ -4,6 +4,7 @@ use log::warn;
 
 use crate::util::write_config;
 
+mod cdtext;
 mod data;
 mod gnudb;
 mod musicbrainz;
