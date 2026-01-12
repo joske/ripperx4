@@ -1,6 +1,7 @@
 # RipperX 4
 
 [![workflow status](https://github.com/joske/ripperx4/actions/workflows/rust.yml/badge.svg)](https://github.com/joske/ripperx4/actions?query=workflow%3A%22rust%22)
+[![security audit](https://github.com/joske/ripperx4/actions/workflows/audit.yml/badge.svg)](https://github.com/joske/ripperx4/actions?query=workflow%3A%22Security+Audit%22)
 
 20 years ago I was maintainer of ripperX, which was written in C and gtk 1.x. I
 started a rewrite (also in C, but using gtk 2), called ripperX 3. The code was
