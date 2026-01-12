@@ -28,7 +28,7 @@ It is now almost feature complete, see below:
 - you can edit the data
 - adds tags to the files
 - you can select which tracks to rip
-- supports MP3, OGG, FLAC and OPUS
+- supports MP3, OGG, FLAC, OPUS and WAV
 - you can set quality options
 - sends notification when done
 
@@ -37,7 +37,6 @@ It is now almost feature complete, see below:
 - no support for multiple matches from musicbrainz (just takes the first match)
 - composer field
 - overwrites existing files with no warning
-- no pure rip to wav (is this really needed?)
 
 ## Building
 
