@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - Cargo.lock
+  workflow_dispatch:
 jobs:
   audit:
     runs-on: ubuntu-latest
