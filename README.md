@@ -32,6 +32,8 @@ It is now almost feature complete, see below:
 - you can set quality options
 - sends notification when done
 - doesn't overwrite existing files without warning
+- can add playlist (m3u) file
+- can eject CD when done
 
 ## What is not supported (yet)
 
