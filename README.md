@@ -24,6 +24,7 @@ It is now almost feature complete, see below:
 ## What works
 
 - can scan CDROM drive
+- reads CD-Text metadata (if available on disc)
 - query musicbrainz with fallback to gnudb
 - you can edit the data
 - adds tags to the files
@@ -39,10 +40,13 @@ It is now almost feature complete, see below:
 
 - no support for multiple matches from musicbrainz (just takes the first match)
 - composer field
+- configurable file naming patterns
+
+See [COMPARISON.md](COMPARISON.md) for a detailed feature comparison with other CD rippers.
 
 ## Building
 
-Install gtk 4, gstreamer, libdiscid
+Install gtk 4, gstreamer, libdiscid, libcdio
 
 `cargo build`
 
