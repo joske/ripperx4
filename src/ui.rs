@@ -1,5 +1,5 @@
 use crate::{
-    data::{Config, Data, Encoder, Quality},
+    data::{Config, Data, Encoder, FilePattern, Quality},
     ripper::{check_existing_files, create_playlist, extract},
     util::{lookup_disc, read_config, scan_disc, write_config},
 };
@@ -151,14 +151,12 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
             .margin_top(10)
             .margin_bottom(10)
             .hexpand(true)
-            .vexpand(true)
             .build();
 
         let frame = Frame::builder()
             .child(&child)
             .label("Configuration")
             .hexpand(true)
-            .vexpand(true)
             .build();
 
         // Path entry
@@ -215,6 +213,84 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
         quality_box.append(&quality_combo);
         child.append(&quality_box);
 
+        // File pattern dropdown
+        let pattern_combo = DropDown::from_strings(FilePattern::OPTIONS);
+
+        // Preview label showing example output
+        let pattern_preview = gtk::Label::builder()
+            .css_classes(["dim-label"])
+            .xalign(0.0)
+            .wrap(true)
+            .build();
+
+        // Custom pattern entry and help text
+        let custom_entry = Entry::builder()
+            .hexpand(true)
+            .placeholder_text("{artist}/{album}/{number} - {title}")
+            .build();
+        let custom_help = gtk::Label::builder()
+            .label("Placeholders: {artist}, {album}, {title}, {number}, {year}, {genre}")
+            .css_classes(["dim-label"])
+            .xalign(0.0)
+            .build();
+        let custom_box = Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(5)
+            .build();
+        custom_box.append(&custom_entry);
+        custom_box.append(&custom_help);
+
+        // Helper to update the preview label
+        let update_preview = |preview: &gtk::Label, pattern: FilePattern, custom: &str| {
+            let template = pattern.template(custom);
+            let example = template
+                .replace("{artist}", "Pink Floyd")
+                .replace("{album}", "The Wall")
+                .replace("{title}", "In The Flesh")
+                .replace("{number}", "01")
+                .replace("{year}", "1979")
+                .replace("{genre}", "Rock");
+            preview.set_label(&format!("Example: {example}.mp3"));
+        };
+
+        // Populate pattern from config
+        if let Ok(c) = config.read() {
+            pattern_combo.set_selected(c.file_pattern.to_index());
+            custom_entry.set_text(&c.custom_pattern);
+            custom_box.set_visible(c.file_pattern == FilePattern::Custom);
+            update_preview(&pattern_preview, c.file_pattern, &c.custom_pattern);
+        }
+
+        // Update preview and show/hide custom entry based on pattern selection
+        let custom_box_for_pattern = custom_box.clone();
+        let preview_for_combo = pattern_preview.clone();
+        let custom_entry_for_combo = custom_entry.clone();
+        pattern_combo.connect_selected_notify(move |combo| {
+            let pattern = FilePattern::from_index(combo.selected());
+            custom_box_for_pattern.set_visible(pattern == FilePattern::Custom);
+            let custom = custom_entry_for_combo.text();
+            update_preview(&preview_for_combo, pattern, &custom);
+        });
+
+        // Update preview when custom pattern text changes
+        let preview_for_entry = pattern_preview.clone();
+        let pattern_combo_for_entry = pattern_combo.clone();
+        custom_entry.connect_changed(move |entry| {
+            let pattern = FilePattern::from_index(pattern_combo_for_entry.selected());
+            update_preview(&preview_for_entry, pattern, &entry.text());
+        });
+
+        // Pattern label and combo
+        let pattern_box = Box::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(10)
+            .build();
+        pattern_box.append(&gtk::Label::new(Some("File pattern:")));
+        pattern_box.append(&pattern_combo);
+        child.append(&pattern_box);
+        child.append(&pattern_preview);
+        child.append(&custom_box);
+
         // Eject when done checkbox
         let eject_check = CheckButton::builder()
             .label("Eject CD when finished")
@@ -231,7 +307,7 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
         }
         child.append(&playlist_check);
 
-        let separator = Separator::builder().vexpand(true).build();
+        let separator = Separator::builder().build();
         child.append(&separator);
 
         let button_box = Box::builder()
@@ -261,6 +337,8 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
                     cfg.encode_path = path_entry.text().to_string();
                     cfg.encoder = Encoder::from_index(encoder_combo.selected());
                     cfg.quality = Quality::from_index(quality_combo.selected());
+                    cfg.file_pattern = FilePattern::from_index(pattern_combo.selected());
+                    cfg.custom_pattern = custom_entry.text().to_string();
                     cfg.eject_when_done = eject_check.is_active();
                     cfg.create_playlist = playlist_check.is_active();
                     write_config(&cfg);

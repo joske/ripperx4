@@ -510,25 +510,47 @@ fn build_tags(track: &Track, disc: &Disc) -> Result<TagList> {
     Ok(tags)
 }
 
+/// Apply a pattern template, substituting placeholders with sanitized values
+fn apply_pattern(pattern: &str, disc: &Disc, track: &Track) -> String {
+    pattern
+        .replace("{artist}", &sanitize_path_component(&disc.artist))
+        .replace("{album}", &sanitize_path_component(&disc.title))
+        .replace("{title}", &sanitize_path_component(&track.title))
+        .replace("{number}", &format!("{:02}", track.number))
+        .replace(
+            "{year}",
+            &disc.year.map_or(String::new(), |y| y.to_string()),
+        )
+        .replace(
+            "{genre}",
+            &sanitize_path_component(&disc.genre.clone().unwrap_or_default()),
+        )
+}
+
 /// Format the output file path without any checks
 fn format_output_path(config: &Config, disc: &Disc, track: &Track) -> String {
     let extension = config.encoder.file_extension();
-    let artist = sanitize_path_component(&disc.artist);
-    let album = sanitize_path_component(&disc.title);
-    let title = sanitize_path_component(&track.title);
-    format!(
-        "{}/{}-{}/{} - {}{}",
-        config.encode_path, artist, album, track.number, title, extension
-    )
+    let pattern = config.file_pattern.template(&config.custom_pattern);
+    let relative_path = apply_pattern(pattern, disc, track);
+    format!("{}/{}{}", config.encode_path, relative_path, extension)
 }
 
-/// Generate M3U playlist content for the given disc
-fn generate_playlist_content(disc: &Disc, extension: &str) -> String {
+/// Extract the filename portion from a pattern (everything after the last `/`)
+fn get_filename_pattern(pattern: &str) -> &str {
+    pattern.rsplit('/').next().unwrap_or(pattern)
+}
+
+/// Generate M3U playlist content for the given disc using the configured pattern
+fn generate_playlist_content(disc: &Disc, extension: &str, pattern: &str) -> String {
+    let filename_pattern = get_filename_pattern(pattern);
     let mut content = String::from("#EXTM3U\n");
     for track in &disc.tracks {
         if track.rip {
-            let title = sanitize_path_component(&track.title);
-            let filename = format!("{} - {}{}", track.number, title, extension);
+            let filename = format!(
+                "{}{}",
+                apply_pattern(filename_pattern, disc, track),
+                extension
+            );
             // #EXTINF:duration,Artist - Title
             let _ = writeln!(
                 content,
@@ -543,15 +565,25 @@ fn generate_playlist_content(disc: &Disc, extension: &str) -> String {
 /// Create an M3U playlist file for the ripped tracks
 pub fn create_playlist(disc: &Disc) -> Result<()> {
     let config = read_config();
-    let artist = sanitize_path_component(&disc.artist);
-    let album = sanitize_path_component(&disc.title);
     let extension = config.encoder.file_extension();
+    let pattern = config.file_pattern.template(&config.custom_pattern);
 
-    let playlist_path = format!("{}/{}-{}/{}.m3u", config.encode_path, artist, album, album);
+    // Use the first track to determine the album directory
+    let first_track = disc
+        .tracks
+        .first()
+        .ok_or_else(|| anyhow!("No tracks to create playlist for"))?;
+    let sample_path = format_output_path(&config, disc, first_track);
+    let album_dir = Path::new(&sample_path)
+        .parent()
+        .ok_or_else(|| anyhow!("Invalid output path"))?;
 
-    let content = generate_playlist_content(disc, extension);
+    let album = sanitize_path_component(&disc.title);
+    let playlist_path = album_dir.join(format!("{album}.m3u"));
+
+    let content = generate_playlist_content(disc, extension, pattern);
     std::fs::write(&playlist_path, content)?;
-    debug!("Created playlist: {playlist_path}");
+    debug!("Created playlist: {}", playlist_path.display());
     Ok(())
 }
 
@@ -1149,13 +1181,14 @@ mod test {
             ],
         };
 
-        let content = generate_playlist_content(&disc, ".mp3");
+        let pattern = "{artist}/{album}/{number} - {title}";
+        let content = generate_playlist_content(&disc, ".mp3", pattern);
 
         assert!(content.starts_with("#EXTM3U\n"));
         assert!(content.contains("#EXTINF:180,Test Artist - First Song"));
-        assert!(content.contains("1 - First Song.mp3"));
+        assert!(content.contains("01 - First Song.mp3"));
         assert!(content.contains("#EXTINF:240,Test Artist - Second Song"));
-        assert!(content.contains("2 - Second Song.mp3"));
+        assert!(content.contains("02 - Second Song.mp3"));
         // Track 3 should NOT be in the playlist (rip=false)
         assert!(!content.contains("Skipped Song"));
     }
@@ -1170,7 +1203,8 @@ mod test {
             tracks: vec![],
         };
 
-        let content = generate_playlist_content(&disc, ".flac");
+        let pattern = "{artist}/{album}/{number} - {title}";
+        let content = generate_playlist_content(&disc, ".flac", pattern);
 
         assert_eq!(content, "#EXTM3U\n");
     }
@@ -1192,10 +1226,11 @@ mod test {
             }],
         };
 
-        let content = generate_playlist_content(&disc, ".mp3");
+        let pattern = "{artist}/{album}/{number} - {title}";
+        let content = generate_playlist_content(&disc, ".mp3", pattern);
 
         // Filename should be sanitized (no slashes)
-        assert!(content.contains("1 - Highway to Hell.mp3"));
+        assert!(content.contains("01 - Highway to Hell.mp3"));
         // But EXTINF should have original artist name
         assert!(content.contains("#EXTINF:208,AC/DC - Highway to Hell"));
     }

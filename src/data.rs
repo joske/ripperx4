@@ -160,6 +160,49 @@ impl Quality {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone, Copy)]
+pub enum FilePattern {
+    #[default]
+    ArtistAlbum,
+    ArtistDashAlbum,
+    AlbumOnly,
+    Custom,
+}
+
+impl FilePattern {
+    pub const OPTIONS: &[&str] = &["Artist/Album", "Artist - Album", "Album only", "Custom"];
+
+    pub fn from_index(idx: u32) -> Self {
+        match idx {
+            0 => Self::ArtistAlbum,
+            1 => Self::ArtistDashAlbum,
+            2 => Self::AlbumOnly,
+            3 => Self::Custom,
+            _ => Self::default(),
+        }
+    }
+
+    pub fn to_index(self) -> u32 {
+        match self {
+            Self::ArtistAlbum => 0,
+            Self::ArtistDashAlbum => 1,
+            Self::AlbumOnly => 2,
+            Self::Custom => 3,
+        }
+    }
+
+    /// Returns the pattern template string for this preset
+    pub fn template(self, custom: &str) -> &str {
+        match self {
+            Self::ArtistAlbum => "{artist}/{album}/{number} - {title}",
+            Self::ArtistDashAlbum => "{artist} - {album}/{number} - {title}",
+            Self::AlbumOnly => "{album}/{number} - {title}",
+            Self::Custom => custom,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub encode_path: String,
@@ -170,6 +213,10 @@ pub struct Config {
     pub eject_when_done: bool,
     #[serde(default)]
     pub create_playlist: bool,
+    #[serde(default)]
+    pub file_pattern: FilePattern,
+    #[serde(default)]
+    pub custom_pattern: String,
 }
 
 impl Default for Config {
@@ -183,6 +230,8 @@ impl Default for Config {
             fake_cdrom: false,
             eject_when_done: false,
             create_playlist: false,
+            file_pattern: FilePattern::default(),
+            custom_pattern: String::new(),
         }
     }
 }
@@ -257,6 +306,8 @@ mod test {
         assert!(!config.fake_cdrom);
         assert!(!config.eject_when_done);
         assert!(!config.create_playlist);
+        assert_eq!(config.file_pattern, FilePattern::ArtistAlbum);
+        assert!(config.custom_pattern.is_empty());
     }
 
     // ==================== Edge case tests ====================
@@ -388,5 +439,50 @@ mod test {
     fn data_default_has_no_disc() {
         let data = Data::default();
         assert!(data.disc.is_none());
+    }
+
+    // ==================== FilePattern tests ====================
+
+    #[test]
+    fn file_pattern_index_roundtrip() {
+        let cases = [
+            (FilePattern::ArtistAlbum, 0),
+            (FilePattern::ArtistDashAlbum, 1),
+            (FilePattern::AlbumOnly, 2),
+            (FilePattern::Custom, 3),
+        ];
+        for (pattern, idx) in cases {
+            assert_eq!(FilePattern::from_index(idx), pattern);
+            assert_eq!(pattern.to_index(), idx);
+        }
+        assert_eq!(FilePattern::from_index(99), FilePattern::default());
+    }
+
+    #[test]
+    fn file_pattern_options_matches_variant_count() {
+        assert_eq!(FilePattern::OPTIONS.len(), 4);
+    }
+
+    #[test]
+    fn file_pattern_templates_contain_placeholders() {
+        let custom = "{custom}";
+        assert!(
+            FilePattern::ArtistAlbum
+                .template(custom)
+                .contains("{artist}")
+        );
+        assert!(
+            FilePattern::ArtistAlbum
+                .template(custom)
+                .contains("{album}")
+        );
+        assert!(
+            FilePattern::ArtistDashAlbum
+                .template(custom)
+                .contains("{artist}")
+        );
+        assert!(FilePattern::AlbumOnly.template(custom).contains("{album}"));
+        assert!(!FilePattern::AlbumOnly.template(custom).contains("{artist}"));
+        assert_eq!(FilePattern::Custom.template(custom), custom);
     }
 }

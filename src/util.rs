@@ -69,7 +69,7 @@ fn fake_discid() -> DiscId {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::data::{Encoder, Quality};
+    use crate::data::{Encoder, FilePattern, Quality};
 
     fn bad_discid() -> DiscId {
         let offsets = [450, 150, 300];
@@ -105,6 +105,8 @@ mod test {
             fake_cdrom: true,
             eject_when_done: true,
             create_playlist: true,
+            file_pattern: FilePattern::ArtistDashAlbum,
+            custom_pattern: String::new(),
         };
 
         // Write and read back
