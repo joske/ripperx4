@@ -365,7 +365,7 @@ fn start_progress_updates(
     });
 }
 
-/// Start periodic progress updates (Linux - uses GStreamer pipeline progress)
+/// Start periodic progress updates (Linux - uses `GStreamer` pipeline progress)
 #[cfg(not(target_os = "macos"))]
 fn start_progress_updates(
     extractor: &TrackExtractor,
@@ -720,12 +720,12 @@ mod test {
     };
     use crate::data::{Disc, Quality, Track};
 
-    /// Test-only version of run_pipeline that works on all platforms
+    /// Test-only version of `run_pipeline` that works on all platforms
     fn run_pipeline(
         pipeline: &Pipeline,
         title: &str,
         status: &async_channel::Sender<String>,
-        ripping: Arc<RwLock<bool>>,
+        ripping: &Arc<RwLock<bool>>,
     ) -> Result<()> {
         let status_message = format!("Encoding {title}");
         let _ = status.send_blocking(status_message.clone());
@@ -1021,7 +1021,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        let result = run_pipeline(&pipeline, "track", &tx, ripping);
+        let result = run_pipeline(&pipeline, "track", &tx, &ripping);
         // Pipeline fails because filesrc->filesink is invalid (incompatible elements)
         assert!(result.is_err());
         Ok(())
@@ -1036,7 +1036,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        run_pipeline(&t.pipeline, "track", &tx, ripping)?;
+        run_pipeline(&t.pipeline, "track", &tx, &ripping)?;
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Mp3)?;
@@ -1053,7 +1053,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        run_pipeline(&t.pipeline, "track", &tx, ripping)?;
+        run_pipeline(&t.pipeline, "track", &tx, &ripping)?;
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Flac)?;
@@ -1070,7 +1070,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        run_pipeline(&t.pipeline, "track", &tx, ripping)?;
+        run_pipeline(&t.pipeline, "track", &tx, &ripping)?;
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Ogg)?;
@@ -1087,7 +1087,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        run_pipeline(&t.pipeline, "track", &tx, ripping)?;
+        run_pipeline(&t.pipeline, "track", &tx, &ripping)?;
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Ogg)?;
@@ -1104,7 +1104,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        run_pipeline(&t.pipeline, "track", &tx, ripping)?;
+        run_pipeline(&t.pipeline, "track", &tx, &ripping)?;
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Wav)?;
