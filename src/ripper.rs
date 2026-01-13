@@ -822,7 +822,7 @@ fn build_aac_pipeline(
     quality: crate::data::Quality,
 ) -> Result<()> {
     let convert = ElementFactory::make("audioconvert").build()?;
-    let encoder = ElementFactory::make("fdkaacenc").build()?;
+    let encoder = ElementFactory::make("avenc_aac").build()?;
     encoder.set_property("bitrate", quality.aac_bitrate());
 
     let muxer = ElementFactory::make("mp4mux").build()?;
