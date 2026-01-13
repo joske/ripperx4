@@ -10,13 +10,12 @@ use anyhow::{Result, anyhow};
 use async_channel::Sender;
 use glib::ControlFlow;
 use gstreamer::{
-    ClockTime, Element, ElementFactory, MessageView, Pipeline, State, TagList, TagMergeMode,
-    TagSetter,
+    Element, ElementFactory, MessageView, Pipeline, State, TagList, TagMergeMode, TagSetter,
     bus::BusWatchGuard,
     glib,
     glib::MainLoop,
     prelude::*,
-    tags::{Album, Artist, Composer, Date, Duration, Title, TrackNumber},
+    tags::{Album, Artist, Composer, Date, Title, TrackNumber},
 };
 #[cfg(not(target_os = "macos"))]
 use gstreamer::{Format, GenericFormattedValue, URIType, format::Percent};
@@ -545,7 +544,10 @@ fn build_tags(track: &Track, disc: &Disc) -> Result<TagList> {
 
     // Don't add Duration tag - the encoder will calculate it from the actual audio
     // Manual duration tags can cause issues with ID3 readers
-    debug!("Track {} duration from metadata: {} seconds", track.number, track.duration);
+    debug!(
+        "Track {} duration from metadata: {} seconds",
+        track.number, track.duration
+    );
 
     if let Some(year) = disc.year {
         let date = glib::Date::from_dmy(1, glib::DateMonth::January, year)?;
