@@ -106,6 +106,38 @@ pub fn check_existing_files(disc: &Disc) -> Vec<String> {
         .collect()
 }
 
+/// Create a fake ripped file (for testing without a CD)
+fn create_fake_file(config: &Config, disc: &Disc, track: &Track, overwrite: bool) -> Result<()> {
+    let path = build_output_path(config, disc, track, overwrite)?;
+    debug!("Creating fake file: {path}");
+    // Create an empty file with the correct extension
+    std::fs::write(&path, [])?;
+    Ok(())
+}
+
+/// Simulate ripping by creating empty files (for testing)
+fn fake_extract(
+    disc: &Disc,
+    status: &Sender<String>,
+    ripping: &Arc<RwLock<bool>>,
+    overwrite: bool,
+) -> Result<()> {
+    let config = read_config();
+    for track in &disc.tracks {
+        if !is_ripping(ripping) {
+            debug!("Fake ripping aborted by user");
+            break;
+        }
+        if track.rip {
+            let _ = status.send_blocking(format!("Simulating rip of {}", track.title));
+            create_fake_file(&config, disc, track, overwrite)?;
+            // Small delay to simulate ripping
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+    }
+    Ok(())
+}
+
 /// Extract/Rip a `Disc` to the configured format
 #[cfg(target_os = "macos")]
 pub fn extract(
@@ -114,6 +146,11 @@ pub fn extract(
     ripping: &Arc<RwLock<bool>>,
     overwrite: bool,
 ) -> Result<()> {
+    let config = read_config();
+    if config.fake_cdrom {
+        return fake_extract(disc, status, ripping, overwrite);
+    }
+
     for track in &disc.tracks {
         if !is_ripping(ripping) {
             debug!("Ripping aborted by user");
@@ -142,6 +179,11 @@ pub fn extract(
     ripping: &Arc<RwLock<bool>>,
     overwrite: bool,
 ) -> Result<()> {
+    let config = read_config();
+    if config.fake_cdrom {
+        return fake_extract(disc, status, ripping, overwrite);
+    }
+
     for track in &disc.tracks {
         if !is_ripping(ripping) {
             debug!("Ripping aborted by user");
