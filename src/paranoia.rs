@@ -20,10 +20,10 @@ use gstreamer::{Buffer, Element, ElementFactory, FlowSuccess, prelude::*};
 use gstreamer_app::AppSrc;
 use gstreamer_audio::AudioInfo;
 use libcdio_sys::{
-    cdio_cddap_close, cdio_cddap_identify, cdio_cddap_open, cdio_cddap_track_firstsector,
-    cdio_cddap_track_lastsector, cdio_paranoia_free, cdio_paranoia_init, cdio_paranoia_modeset,
-    cdio_paranoia_read, cdio_paranoia_seek, cdrom_drive_t, cdrom_paranoia_t,
-    paranoia_mode_t_PARANOIA_MODE_FULL,
+    cdio_cddap_close, cdio_cddap_identify, cdio_cddap_open, cdio_cddap_speed_set,
+    cdio_cddap_track_firstsector, cdio_cddap_track_lastsector, cdio_paranoia_free,
+    cdio_paranoia_init, cdio_paranoia_modeset, cdio_paranoia_read, cdio_paranoia_seek,
+    cdrom_drive_t, cdrom_paranoia_t, paranoia_mode_t_PARANOIA_MODE_FULL,
 };
 use log::{debug, error, warn};
 
@@ -57,6 +57,9 @@ impl CddaHandle {
             return Err(anyhow!("Failed to open CD drive for audio reading"));
         }
 
+        // Set maximum read speed (0 = fastest)
+        unsafe { cdio_cddap_speed_set(ptr, 0) };
+
         Ok(Self { ptr })
     }
 
@@ -85,17 +88,26 @@ struct ParanoiaHandle {
 }
 
 impl ParanoiaHandle {
-    fn new(drive: &CddaHandle) -> Result<Self> {
+    fn new(drive: &CddaHandle, use_paranoia: bool) -> Result<Self> {
         let ptr = unsafe { cdio_paranoia_init(drive.ptr) };
 
         if ptr.is_null() {
             return Err(anyhow!("Failed to initialize paranoia"));
         }
 
-        // Set full paranoia mode for maximum error correction
-        #[allow(clippy::cast_possible_wrap)] // Known constant value
+        // Set paranoia mode based on config
+        let mode = if use_paranoia {
+            debug!("Using full paranoia mode for error correction");
+            #[allow(clippy::cast_possible_wrap)]
+            {
+                paranoia_mode_t_PARANOIA_MODE_FULL as i32
+            }
+        } else {
+            debug!("Paranoia disabled for faster ripping");
+            0 // PARANOIA_MODE_DISABLE
+        };
         unsafe {
-            cdio_paranoia_modeset(ptr, paranoia_mode_t_PARANOIA_MODE_FULL as i32);
+            cdio_paranoia_modeset(ptr, mode);
         }
 
         Ok(Self { ptr })
@@ -186,8 +198,7 @@ pub fn create_cd_appsrc(track_info: &TrackInfo) -> Result<Element> {
     // Duration = sectors * samples_per_sector / sample_rate
     // = sectors * 588 / 44100 seconds
     let duration_ns = u64::from(track_info.total_sectors) * 588 * 1_000_000_000 / 44100;
-    #[allow(clippy::cast_possible_wrap)] // CD tracks are never long enough to overflow i64
-    appsrc.set_property("duration", duration_ns as i64);
+    appsrc.set_property("duration", duration_ns);
 
     Ok(appsrc)
 }
@@ -200,6 +211,7 @@ struct ExtractionContext {
     abort: Arc<AtomicBool>,
     progress_sectors: Arc<std::sync::atomic::AtomicU32>,
     total_sectors: u32,
+    use_paranoia: bool,
 }
 
 /// Start reading CD audio in a background thread and push to appsrc
@@ -208,6 +220,7 @@ pub fn start_extraction(
     track_number: u32,
     appsrc: &Element,
     abort: Arc<AtomicBool>,
+    use_paranoia: bool,
 ) -> Result<(
     thread::JoinHandle<Result<()>>,
     Arc<std::sync::atomic::AtomicU32>,
@@ -231,6 +244,7 @@ pub fn start_extraction(
         abort,
         progress_sectors: progress_clone,
         total_sectors,
+        use_paranoia,
     };
 
     let handle = thread::spawn(move || extraction_thread(ctx));
@@ -247,7 +261,7 @@ fn extraction_thread(ctx: ExtractionContext) -> Result<()> {
     );
 
     let drive = CddaHandle::open(ctx.device.as_deref())?;
-    let mut paranoia = ParanoiaHandle::new(&drive)?;
+    let mut paranoia = ParanoiaHandle::new(&drive, ctx.use_paranoia)?;
 
     // Seek to the first sector of the track
     let first_sector = drive.track_first_sector(ctx.track_number);

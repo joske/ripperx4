@@ -108,6 +108,7 @@ mod test {
             file_pattern: FilePattern::ArtistDashAlbum,
             custom_pattern: String::new(),
             open_folder_when_done: true,
+            use_paranoia: false,
         };
 
         // Write and read back

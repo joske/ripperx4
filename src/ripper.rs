@@ -9,7 +9,6 @@ use crate::{
 use anyhow::{Result, anyhow};
 use async_channel::Sender;
 #[cfg(target_os = "macos")]
-use discid::DiscId;
 use glib::ControlFlow;
 use gstreamer::{
     ClockTime, Element, ElementFactory, MessageView, Pipeline, State, TagList, TagMergeMode,
@@ -165,6 +164,7 @@ pub fn extract(
                 &track.title,
                 status,
                 ripping.clone(),
+                config.use_paranoia,
             )?;
         }
     }
@@ -253,14 +253,16 @@ fn extract_track(
     title: &str,
     status: &Sender<String>,
     ripping: Arc<RwLock<bool>>,
+    use_paranoia: bool,
 ) -> Result<()> {
     // Start the paranoia extraction thread
-    let device = DiscId::default_device();
+    // Pass None to let libcdio auto-detect the CD drive
     let (extraction_handle, progress_sectors, total_sectors) = start_extraction(
-        Some(&device),
+        None,
         track_number,
         source,
         Arc::new(AtomicBool::new(false)), // abort flag managed separately
+        use_paranoia,
     )?;
 
     let result = run_pipeline(
@@ -467,8 +469,9 @@ fn calculate_progress(pipeline: &Pipeline) -> f64 {
 fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<(Pipeline, Element)> {
     let config: Config = read_config();
 
-    let device = DiscId::default_device();
-    let track_info = get_track_info(Some(&device), track.number)?;
+    // Pass None to let libcdio auto-detect the CD drive
+    // (DiscId::default_device() returns IOKit identifiers which libcdio doesn't understand)
+    let track_info = get_track_info(None, track.number)?;
     let source = create_cd_appsrc(&track_info)?;
 
     let tags = build_tags(track, disc)?;
@@ -497,7 +500,7 @@ fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<(Pipel
 fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<Pipeline> {
     let config: Config = read_config();
 
-    let source = create_cd_source(track.number)?;
+    let source = create_cd_source(track.number, config.use_paranoia)?;
     let tags = build_tags(track, disc)?;
     let output_path = build_output_path(&config, disc, track, overwrite)?;
     let sink = create_file_sink(&output_path)?;
@@ -517,10 +520,13 @@ fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<Pipeli
 
 /// Create the CD audio source element using cdda:// (Linux only)
 #[cfg(not(target_os = "macos"))]
-fn create_cd_source(track_number: u32) -> Result<Element> {
+fn create_cd_source(track_number: u32, use_paranoia: bool) -> Result<Element> {
     let uri = format!("cdda://{track_number}");
     let extractor = Element::make_from_uri(URIType::Src, &uri, Some("cd_src"))?;
     extractor.set_property("read-speed", 0_i32);
+    // paranoia-mode: 0=disable, 255=full (fragment+overlap+scratch+repair+neverskip)
+    let paranoia_mode = if use_paranoia { 255_i32 } else { 0_i32 };
+    extractor.set_property("paranoia-mode", paranoia_mode);
     Ok(extractor)
 }
 

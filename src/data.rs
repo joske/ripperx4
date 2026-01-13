@@ -220,6 +220,9 @@ pub struct Config {
     pub custom_pattern: String,
     #[serde(default)]
     pub open_folder_when_done: bool,
+    /// Enable paranoia error correction for scratched discs (slower but more reliable)
+    #[serde(default)]
+    pub use_paranoia: bool,
 }
 
 impl Default for Config {
@@ -236,6 +239,7 @@ impl Default for Config {
             file_pattern: FilePattern::default(),
             custom_pattern: String::new(),
             open_folder_when_done: false,
+            use_paranoia: true,
         }
     }
 }
@@ -313,6 +317,7 @@ mod test {
         assert_eq!(config.file_pattern, FilePattern::ArtistAlbum);
         assert!(config.custom_pattern.is_empty());
         assert!(!config.open_folder_when_done);
+        assert!(config.use_paranoia);
     }
 
     // ==================== Edge case tests ====================

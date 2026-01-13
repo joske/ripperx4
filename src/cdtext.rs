@@ -3,7 +3,6 @@ use std::{
     ptr,
 };
 
-use discid::DiscId;
 use libcdio_sys::{
     CdIo_t, cdio_destroy, cdio_get_cdtext, cdio_get_first_track_num, cdio_get_num_tracks,
     cdio_open, cdtext_field_t_CDTEXT_FIELD_COMPOSER, cdtext_field_t_CDTEXT_FIELD_GENRE,
@@ -69,10 +68,10 @@ fn get_cdtext_field(
 
 /// Try to read CD-Text from the disc and return a Disc if successful
 pub fn read_cdtext() -> Option<Disc> {
-    let device = DiscId::default_device();
-    debug!("Attempting to read CD-Text from device: {device}");
+    debug!("Attempting to read CD-Text (auto-detecting device)");
 
-    let cdio = CdioHandle::open(Some(&device))?;
+    // Pass None to let libcdio auto-detect the CD drive
+    let cdio = CdioHandle::open(None)?;
 
     // Check if we have CD-Text at all (try to get album title)
     let title = get_cdtext_field(cdio.ptr, cdtext_field_t_CDTEXT_FIELD_TITLE, 0)?;

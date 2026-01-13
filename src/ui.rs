@@ -316,6 +316,15 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
         }
         child.append(&open_folder_check);
 
+        // Paranoia error correction checkbox
+        let paranoia_check = CheckButton::builder()
+            .label("Error correction (slower, for scratched discs)")
+            .build();
+        if let Ok(c) = config.read() {
+            paranoia_check.set_active(c.use_paranoia);
+        }
+        child.append(&paranoia_check);
+
         let separator = Separator::builder().build();
         child.append(&separator);
 
@@ -351,6 +360,7 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
                     cfg.eject_when_done = eject_check.is_active();
                     cfg.create_playlist = playlist_check.is_active();
                     cfg.open_folder_when_done = open_folder_check.is_active();
+                    cfg.use_paranoia = paranoia_check.is_active();
                     write_config(&cfg);
                 }
                 dialog.close();
