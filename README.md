@@ -37,6 +37,7 @@ It is now almost feature complete, see below:
 - can eject CD when done
 - can open music folder when done
 - configurable file naming patterns
+- can disable paranoia (error correction) to speed up ripping
 
 ## What is not supported (yet)
 
@@ -47,7 +48,7 @@ See [COMPARISON.md](COMPARISON.md) for a detailed feature comparison with other 
 
 ## Building
 
-Install gtk 4, gstreamer, libdiscid, libcdio
+Install gtk 4, gstreamer, libdiscid, libcdio (and on macOS: libcdio-paranoia)
 
 `cargo build`
 
