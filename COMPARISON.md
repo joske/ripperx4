@@ -10,8 +10,8 @@
 | External encoder support | Yes (plugins for lame, oggenc, flac, etc.)    | No (GStreamer built-in)     |
 | Ripper                   | cdparanoia (configurable)                     | GStreamer cdparanoiasrc     |
 | Metadata source          | GNUDB/CDDB only                               | CD-Text, MusicBrainz, GNUDB |
-| File naming patterns     | Yes (%a - %s, %v, etc.)                       | Yes                         |
-| Dir naming patterns      | Yes (%a - %v format)                          | No (fixed Artist-Album)     |
+| File naming patterns     | Yes (%a - %s, %v, etc.)                       | Yes (presets + custom)      |
+| Dir naming patterns      | Yes (%a - %v format)                          | Yes (presets + custom)      |
 | Eject when done          | Yes                                           | Yes                         |
 | Playlist (M3U)           | Yes                                           | Yes                         |
 | Keep WAV files           | Yes                                           | No                          |
@@ -28,12 +28,11 @@
 
 Missing in ripperX4 vs C++ ripperX:
 
-1. Configurable file/directory naming patterns
-2. Multiple simultaneous encoders
-3. Keep WAV files option
-4. CD/WAV/MP3 playback
-5. Per-encoder quality settings
-6. Extra encoder options
+1. Multiple simultaneous encoders
+2. Keep WAV files option
+3. CD/WAV/MP3 playback
+4. Per-encoder quality settings
+5. Extra encoder options
 
 ripperX4 advantages over C++ ripperX:
 
@@ -50,9 +49,9 @@ ripperX4 advantages over C++ ripperX:
 | Encoders              | Any GStreamer profile (MP3, OGG, FLAC, AAC, etc.) | MP3, OGG, FLAC, Opus, WAV    |
 | Metadata source       | MusicBrainz, CD-Text, FreeDB                      | CD-Text, MusicBrainz, GNUDB  |
 | Multiple matches      | Yes (album chooser dialog)                        | No (takes first match)       |
-| File naming patterns  | Yes (14 path + 10 file patterns)                  | Yes                          |
+| File naming patterns  | Yes (14 path + 10 file patterns)                  | Yes (presets + custom)       |
 | Eject when done       | Yes                                               | Yes                          |
-| Open folder when done | Yes                                               | No                           |
+| Open folder when done | Yes                                               | Yes                          |
 | Strip special chars   | Yes (configurable)                                | Yes (always on)              |
 | CD drive selection    | Yes (multiple drives)                             | No (default drive only)      |
 | Quality settings      | Via GStreamer profiles                            | Low/Medium/High              |
@@ -66,11 +65,9 @@ ripperX4 advantages over C++ ripperX:
 
 Missing in ripperX4 vs Sound Juicer:
 
-1. Configurable file naming patterns - biggest gap
-2. Multiple MusicBrainz match selection
-3. Open folder when done
-4. CD drive selection (for systems with multiple drives)
-5. CD playback
+1. Multiple MusicBrainz match selection
+2. CD drive selection (for systems with multiple drives)
+3. CD playback
 
 ripperX4 advantages over Sound Juicer:
 

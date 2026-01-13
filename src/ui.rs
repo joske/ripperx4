@@ -1,6 +1,6 @@
 use crate::{
     data::{Config, Data, Encoder, FilePattern, Quality},
-    ripper::{check_existing_files, create_playlist, extract},
+    ripper::{check_existing_files, create_playlist, extract, open_album_folder},
     util::{lookup_disc, read_config, scan_disc, write_config},
 };
 use glib::{Type, prelude::IsA};
@@ -307,6 +307,15 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
         }
         child.append(&playlist_check);
 
+        // Open folder when done checkbox
+        let open_folder_check = CheckButton::builder()
+            .label("Open music folder when finished")
+            .build();
+        if let Ok(c) = config.read() {
+            open_folder_check.set_active(c.open_folder_when_done);
+        }
+        child.append(&open_folder_check);
+
         let separator = Separator::builder().build();
         child.append(&separator);
 
@@ -341,6 +350,7 @@ fn handle_config(builder: &Builder, window: &ApplicationWindow) {
                     cfg.custom_pattern = custom_entry.text().to_string();
                     cfg.eject_when_done = eject_check.is_active();
                     cfg.create_playlist = playlist_check.is_active();
+                    cfg.open_folder_when_done = open_folder_check.is_active();
                     write_config(&cfg);
                 }
                 dialog.close();
@@ -965,6 +975,13 @@ fn start_ripping(
                         && let Err(e) = create_playlist(disc)
                     {
                         warn!("Failed to create playlist: {e}");
+                    }
+                    if config.open_folder_when_done
+                        && let Ok(data) = notify_data.read()
+                        && let Some(disc) = &data.disc
+                        && let Err(e) = open_album_folder(disc)
+                    {
+                        warn!("Failed to open folder: {e}");
                     }
                     if config.eject_when_done {
                         eject_cd();

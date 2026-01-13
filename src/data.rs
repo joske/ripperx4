@@ -204,6 +204,7 @@ impl FilePattern {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Config {
     pub encode_path: String,
     pub encoder: Encoder,
@@ -217,6 +218,8 @@ pub struct Config {
     pub file_pattern: FilePattern,
     #[serde(default)]
     pub custom_pattern: String,
+    #[serde(default)]
+    pub open_folder_when_done: bool,
 }
 
 impl Default for Config {
@@ -232,6 +235,7 @@ impl Default for Config {
             create_playlist: false,
             file_pattern: FilePattern::default(),
             custom_pattern: String::new(),
+            open_folder_when_done: false,
         }
     }
 }
@@ -308,6 +312,7 @@ mod test {
         assert!(!config.create_playlist);
         assert_eq!(config.file_pattern, FilePattern::ArtistAlbum);
         assert!(config.custom_pattern.is_empty());
+        assert!(!config.open_folder_when_done);
     }
 
     // ==================== Edge case tests ====================

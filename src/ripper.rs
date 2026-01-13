@@ -587,6 +587,37 @@ pub fn create_playlist(disc: &Disc) -> Result<()> {
     Ok(())
 }
 
+/// Open the album folder in the system file manager
+pub fn open_album_folder(disc: &Disc) -> Result<()> {
+    let config = read_config();
+
+    // Use the first track to determine the album directory
+    let first_track = disc
+        .tracks
+        .first()
+        .ok_or_else(|| anyhow!("No tracks to open folder for"))?;
+    let sample_path = format_output_path(&config, disc, first_track);
+    let album_dir = Path::new(&sample_path)
+        .parent()
+        .ok_or_else(|| anyhow!("Invalid output path"))?;
+
+    debug!("Opening folder: {}", album_dir.display());
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open").arg(album_dir).spawn()?;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(album_dir)
+            .spawn()?;
+    }
+
+    Ok(())
+}
+
 /// Build the output file path and ensure directory exists
 fn build_output_path(
     config: &Config,

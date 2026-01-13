@@ -107,6 +107,7 @@ mod test {
             create_playlist: true,
             file_pattern: FilePattern::ArtistDashAlbum,
             custom_pattern: String::new(),
+            open_folder_when_done: true,
         };
 
         // Write and read back

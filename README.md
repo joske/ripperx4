@@ -35,6 +35,7 @@ It is now almost feature complete, see below:
 - doesn't overwrite existing files without warning
 - can add playlist (m3u) file
 - can eject CD when done
+- can open music folder when done
 - configurable file naming patterns
 
 ## What is not supported (yet)
