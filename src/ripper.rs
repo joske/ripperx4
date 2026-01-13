@@ -490,6 +490,7 @@ fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<(Pipel
             build_opus_pipeline(&pipeline, source.clone(), sink, &tags, config.quality)?;
         }
         Encoder::WAV => build_wav_pipeline(&pipeline, source.clone(), sink)?,
+        Encoder::AAC => build_aac_pipeline(&pipeline, source.clone(), sink, &tags, config.quality)?,
     }
 
     Ok((pipeline, source))
@@ -513,6 +514,7 @@ fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<Pipeli
         Encoder::FLAC => build_flac_pipeline(&pipeline, source, sink, &tags, config.quality)?,
         Encoder::OPUS => build_opus_pipeline(&pipeline, source, sink, &tags, config.quality)?,
         Encoder::WAV => build_wav_pipeline(&pipeline, source, sink)?,
+        Encoder::AAC => build_aac_pipeline(&pipeline, source, sink, &tags, config.quality)?,
     }
 
     Ok(pipeline)
@@ -811,6 +813,24 @@ fn build_wav_pipeline(pipeline: &Pipeline, source: Element, sink: Element) -> Re
     link_pipeline(pipeline, &[&source, &encoder, &sink])
 }
 
+#[allow(clippy::needless_pass_by_value)] // Elements are consumed by pipeline
+fn build_aac_pipeline(
+    pipeline: &Pipeline,
+    source: Element,
+    sink: Element,
+    tags: &TagList,
+    quality: crate::data::Quality,
+) -> Result<()> {
+    let convert = ElementFactory::make("audioconvert").build()?;
+    let encoder = ElementFactory::make("fdkaacenc").build()?;
+    encoder.set_property("bitrate", quality.aac_bitrate());
+
+    let muxer = ElementFactory::make("mp4mux").build()?;
+    apply_tags(&muxer, tags)?;
+
+    link_pipeline(pipeline, &[&source, &convert, &encoder, &muxer, &sink])
+}
+
 #[cfg(test)]
 mod test {
     use anyhow::{Result, anyhow};
@@ -830,8 +850,9 @@ mod test {
     };
 
     use super::{
-        build_flac_pipeline, build_mp3_pipeline, build_ogg_pipeline, build_opus_pipeline,
-        build_wav_pipeline, generate_playlist_content, sanitize_path_component,
+        build_aac_pipeline, build_flac_pipeline, build_mp3_pipeline, build_ogg_pipeline,
+        build_opus_pipeline, build_wav_pipeline, generate_playlist_content,
+        sanitize_path_component,
     };
     use crate::data::{Disc, Quality, Track};
 
@@ -1100,6 +1121,8 @@ mod test {
             [0x4f, 0x67, 0x67, 0x53, ..] => FileType::Ogg,
             // WAV: "RIFF....WAVE"
             [0x52, 0x49, 0x46, 0x46, _, _, _, _, 0x57, 0x41, 0x56, 0x45] => FileType::Wav,
+            // M4A/MP4: "ftyp" at offset 4
+            [_, _, _, _, 0x66, 0x74, 0x79, 0x70, ..] => FileType::M4a,
             _ => return Err(anyhow!("Unknown file type: {:02x?}", &header[..4])),
         };
 
@@ -1116,6 +1139,7 @@ mod test {
         Flac,
         Ogg, // Vorbis and Opus both use OGG container
         Wav,
+        M4a, // AAC in MP4 container
     }
 
     #[test]
@@ -1223,6 +1247,23 @@ mod test {
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Wav)?;
+        remove_file(dest)?;
+        Ok(())
+    }
+
+    #[test]
+    pub fn test_aac() -> Result<()> {
+        let dest = "/tmp/test_audio.m4a";
+        let t = setup_test_pipeline(dest)?;
+
+        build_aac_pipeline(&t.pipeline, t.source, t.sink, &t.tags, Quality::Medium)?;
+
+        let (tx, _rx) = async_channel::unbounded();
+        let ripping = Arc::new(RwLock::new(true));
+        run_pipeline(&t.pipeline, "track", &tx, &ripping)?;
+
+        assert!(Path::new(dest).exists());
+        verify_file_type(dest, &FileType::M4a)?;
         remove_file(dest)?;
         Ok(())
     }

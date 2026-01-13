@@ -2,10 +2,10 @@
 
 ## ripperX4 vs C++ ripperX (ripperX3)
 
-| Feature                  | C++ ripperX                                   | ripperX4                    |
-| ------------------------ | --------------------------------------------- | --------------------------- |
-| GUI toolkit              | GTK3                                          | GTK4                        |
-| Encoders                 | MP3, OGG, FLAC, MP2, Musepack, Opus (plugins) | MP3, OGG, FLAC, Opus, WAV   |
+| Feature                  | C++ ripperX                                   | ripperX4                        |
+| ------------------------ | --------------------------------------------- | ------------------------------- |
+| GUI toolkit              | GTK3                                          | GTK4                            |
+| Encoders                 | MP3, OGG, FLAC, MP2, Musepack, Opus (plugins) | MP3, OGG, FLAC, Opus, WAV, AAC  |
 | Multiple encoders        | Yes (encode to multiple formats at once)      | No (single format)          |
 | External encoder support | Yes (plugins for lame, oggenc, flac, etc.)    | No (GStreamer built-in)     |
 | Ripper                   | cdparanoia (configurable)                     | GStreamer cdparanoiasrc     |
@@ -44,9 +44,9 @@ ripperX4 advantages over C++ ripperX:
 
 ## ripperX4 vs Sound Juicer
 
-| Feature               | Sound Juicer                                      | ripperX4                     |
-| --------------------- | ------------------------------------------------- | ---------------------------- |
-| Encoders              | Any GStreamer profile (MP3, OGG, FLAC, AAC, etc.) | MP3, OGG, FLAC, Opus, WAV    |
+| Feature               | Sound Juicer                                      | ripperX4                         |
+| --------------------- | ------------------------------------------------- | -------------------------------- |
+| Encoders              | Any GStreamer profile (MP3, OGG, FLAC, AAC, etc.) | MP3, OGG, FLAC, Opus, WAV, AAC   |
 | Metadata source       | MusicBrainz, CD-Text, FreeDB                      | CD-Text, MusicBrainz, GNUDB  |
 | Multiple matches      | Yes (album chooser dialog)                        | No (takes first match)       |
 | File naming patterns  | Yes (14 path + 10 file patterns)                  | Yes (presets + custom)       |

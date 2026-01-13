@@ -56,10 +56,11 @@ pub enum Encoder {
     FLAC,
     OPUS,
     WAV,
+    AAC,
 }
 
 impl Encoder {
-    pub const OPTIONS: &[&str] = &["mp3", "ogg", "flac", "opus", "wav"];
+    pub const OPTIONS: &[&str] = &["mp3", "ogg", "flac", "opus", "wav", "aac"];
 
     pub fn from_index(idx: u32) -> Self {
         match idx {
@@ -68,6 +69,7 @@ impl Encoder {
             2 => Self::FLAC,
             3 => Self::OPUS,
             4 => Self::WAV,
+            5 => Self::AAC,
             _ => Self::default(),
         }
     }
@@ -79,6 +81,7 @@ impl Encoder {
             Self::FLAC => 2,
             Self::OPUS => 3,
             Self::WAV => 4,
+            Self::AAC => 5,
         }
     }
 
@@ -88,6 +91,7 @@ impl Encoder {
             Self::FLAC => ".flac",
             Self::OGG | Self::OPUS => ".ogg",
             Self::WAV => ".wav",
+            Self::AAC => ".m4a",
         }
     }
 
@@ -156,6 +160,15 @@ impl Quality {
         match self {
             Self::Low => 64_000,
             Self::Medium => 128_000,
+            Self::High => 256_000,
+        }
+    }
+
+    /// AAC bitrate in bits/second
+    pub fn aac_bitrate(self) -> i32 {
+        match self {
+            Self::Low => 128_000,
+            Self::Medium => 192_000,
             Self::High => 256_000,
         }
     }
@@ -273,6 +286,8 @@ mod test {
             (Encoder::OGG, 1, ".ogg"),
             (Encoder::FLAC, 2, ".flac"),
             (Encoder::OPUS, 3, ".ogg"),
+            (Encoder::WAV, 4, ".wav"),
+            (Encoder::AAC, 5, ".m4a"),
         ];
         for (encoder, idx, ext) in cases {
             assert_eq!(Encoder::from_index(idx), encoder);
@@ -286,18 +301,19 @@ mod test {
     #[test]
     fn quality_index_roundtrip_and_settings() {
         let cases = [
-            (Quality::Low, 0, 9.0, 0.2, "2", 64_000),
-            (Quality::Medium, 1, 5.0, 0.5, "5", 128_000),
-            (Quality::High, 2, 0.0, 0.9, "8", 256_000),
+            (Quality::Low, 0, 9.0, 0.2, "2", 64_000, 128_000),
+            (Quality::Medium, 1, 5.0, 0.5, "5", 128_000, 192_000),
+            (Quality::High, 2, 0.0, 0.9, "8", 256_000, 256_000),
         ];
         #[allow(clippy::float_cmp)]
-        for (quality, idx, mp3_q, vorbis_q, flac_lvl, opus_br) in cases {
+        for (quality, idx, mp3_q, vorbis_q, flac_lvl, opus_br, aac_br) in cases {
             assert_eq!(Quality::from_index(idx), quality);
             assert_eq!(quality.to_index(), idx);
             assert_eq!(quality.mp3_quality(), mp3_q);
             assert_eq!(quality.vorbis_quality(), vorbis_q);
             assert_eq!(quality.flac_level(), flac_lvl);
             assert_eq!(quality.opus_bitrate(), opus_br);
+            assert_eq!(quality.aac_bitrate(), aac_br);
         }
 
         assert_eq!(Quality::from_index(99), Quality::default());
@@ -353,7 +369,14 @@ mod test {
 
     #[test]
     fn encoder_all_variants_have_non_empty_extensions() {
-        let encoders = [Encoder::MP3, Encoder::OGG, Encoder::FLAC, Encoder::OPUS];
+        let encoders = [
+            Encoder::MP3,
+            Encoder::OGG,
+            Encoder::FLAC,
+            Encoder::OPUS,
+            Encoder::WAV,
+            Encoder::AAC,
+        ];
         for encoder in encoders {
             let ext = encoder.file_extension();
             assert!(
@@ -370,12 +393,13 @@ mod test {
     #[test]
     fn encoder_options_matches_variant_count() {
         // Ensure OPTIONS array stays in sync with enum variants
-        assert_eq!(Encoder::OPTIONS.len(), 5);
+        assert_eq!(Encoder::OPTIONS.len(), 6);
         assert_eq!(Encoder::OPTIONS[0], "mp3");
         assert_eq!(Encoder::OPTIONS[1], "ogg");
         assert_eq!(Encoder::OPTIONS[2], "flac");
         assert_eq!(Encoder::OPTIONS[3], "opus");
         assert_eq!(Encoder::OPTIONS[4], "wav");
+        assert_eq!(Encoder::OPTIONS[5], "aac");
     }
 
     #[test]
@@ -441,6 +465,26 @@ mod test {
             assert!(
                 bitrate <= 512_000,
                 "Opus bitrate {bitrate} too high for {quality:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn quality_aac_bitrates_are_reasonable() {
+        // AAC bitrate should be positive and reasonable (64k-320k typical range)
+        for quality in [Quality::Low, Quality::Medium, Quality::High] {
+            let bitrate = quality.aac_bitrate();
+            assert!(
+                bitrate > 0,
+                "AAC bitrate should be positive for {quality:?}"
+            );
+            assert!(
+                bitrate >= 64_000,
+                "AAC bitrate {bitrate} too low for {quality:?}"
+            );
+            assert!(
+                bitrate <= 320_000,
+                "AAC bitrate {bitrate} too high for {quality:?}"
             );
         }
     }

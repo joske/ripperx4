@@ -29,7 +29,7 @@ It is now almost feature complete, see below:
 - you can edit the data
 - adds tags to the files
 - you can select which tracks to rip
-- supports MP3, OGG, FLAC, OPUS and WAV
+- supports MP3, OGG, FLAC, OPUS, AAC and WAV
 - you can set quality options
 - sends notification when done
 - doesn't overwrite existing files without warning
