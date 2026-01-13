@@ -523,9 +523,9 @@ fn create_cd_source(track_number: u32, use_paranoia: bool) -> Result<Element> {
     let uri = format!("cdda://{track_number}");
     let extractor = Element::make_from_uri(URIType::Src, &uri, Some("cd_src"))?;
     extractor.set_property("read-speed", 0_i32);
-    // paranoia-mode: 0=disable, 255=full (fragment+overlap+scratch+repair+neverskip)
-    let paranoia_mode = if use_paranoia { 255_i32 } else { 0_i32 };
-    extractor.set_property("paranoia-mode", paranoia_mode);
+    // paranoia-mode: disable, fragment, overlap, scratch, repair, full
+    let paranoia_mode = if use_paranoia { "full" } else { "disable" };
+    extractor.set_property_from_str("paranoia-mode", paranoia_mode);
     Ok(extractor)
 }
 
