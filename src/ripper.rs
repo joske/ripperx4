@@ -230,6 +230,7 @@ fn run_pipeline(
     );
     let _bus_watch = setup_bus_watch(&extractor, pipeline, main_loop.clone())?;
 
+    debug!("Start encoding {title}");
     main_loop.run();
 
     if let Some(msg) = extractor.take_error() {
@@ -304,6 +305,7 @@ fn extract_track(
     );
     let _bus_watch = setup_bus_watch(&extractor, pipeline, main_loop.clone())?;
 
+    debug!("Start encoding {title}");
     main_loop.run();
 
     if let Some(msg) = extractor.take_error() {
