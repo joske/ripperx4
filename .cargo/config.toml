@@ -1,6 +1,7 @@
 [env]
-# For macOS: include both possible Homebrew locations
+# For macOS: include both possible Homebrew locations (ARM and Intel)
 # pkg-config and clang will ignore paths that don't exist
-PKG_CONFIG_PATH = "/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig"
+# GStreamer and libcdio-paranoia install their .pc files in opt/<pkg>/lib/pkgconfig
+PKG_CONFIG_PATH = "/opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/gstreamer/lib/pkgconfig:/opt/homebrew/opt/libcdio-paranoia/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/local/opt/gstreamer/lib/pkgconfig:/usr/local/opt/libcdio-paranoia/lib/pkgconfig"
 LIBRARY_PATH = "/opt/homebrew/lib:/usr/local/lib"
 BINDGEN_EXTRA_CLANG_ARGS = "-I/opt/homebrew/include -I/usr/local/include"
