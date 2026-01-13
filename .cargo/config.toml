@@ -1,0 +1,6 @@
+[env]
+# For macOS: include both possible Homebrew locations
+# pkg-config and clang will ignore paths that don't exist
+PKG_CONFIG_PATH = "/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig"
+LIBRARY_PATH = "/opt/homebrew/lib:/usr/local/lib"
+BINDGEN_EXTRA_CLANG_ARGS = "-I/opt/homebrew/include -I/usr/local/include"
