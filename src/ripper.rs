@@ -741,16 +741,8 @@ fn build_mp3_pipeline(
     quality: crate::data::Quality,
 ) -> Result<()> {
     let encoder = ElementFactory::make("lamemp3enc").build()?;
-
-    // Use CBR (constant bitrate) instead of VBR for better compatibility
-    // with older tools that don't read VBR headers correctly
-    let target_bitrate = match quality {
-        crate::data::Quality::Low => 96,
-        crate::data::Quality::Medium => 128,
-        crate::data::Quality::High => 320,
-    };
-    encoder.set_property_from_str("target", "bitrate"); // CBR mode
-    encoder.set_property("bitrate", target_bitrate);
+    // Use VBR quality mode for better quality/size ratio
+    encoder.set_property("quality", quality.mp3_quality());
 
     let muxer = ElementFactory::make("id3v2mux").build()?;
     apply_tags(&muxer, tags)?;

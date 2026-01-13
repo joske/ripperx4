@@ -124,8 +124,7 @@ impl Quality {
         }
     }
 
-    /// LAME MP3 encoder quality (0=best, 9=worst) - VBR mode (currently unused)
-    #[allow(dead_code)]
+    /// LAME MP3 encoder quality (0=best, 9=worst) - VBR mode
     pub fn mp3_quality(self) -> f32 {
         match self {
             Self::Low => 9.0,
