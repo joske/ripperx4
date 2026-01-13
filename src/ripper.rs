@@ -8,7 +8,6 @@ use crate::{
 };
 use anyhow::{Result, anyhow};
 use async_channel::Sender;
-#[cfg(target_os = "macos")]
 use glib::ControlFlow;
 use gstreamer::{
     ClockTime, Element, ElementFactory, MessageView, Pipeline, State, TagList, TagMergeMode,
