@@ -749,7 +749,7 @@ fn build_mp3_pipeline(
         crate::data::Quality::Medium => 128,
         crate::data::Quality::High => 320,
     };
-    encoder.set_property("target", 1i32); // 1 = bitrate (CBR mode)
+    encoder.set_property_from_str("target", "bitrate"); // CBR mode
     encoder.set_property("bitrate", target_bitrate);
 
     let muxer = ElementFactory::make("id3v2mux").build()?;
