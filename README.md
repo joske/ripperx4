@@ -35,12 +35,12 @@ It is now almost feature complete, see below:
 - doesn't overwrite existing files without warning
 - can add playlist (m3u) file
 - can eject CD when done
+- configurable file naming patterns
 
 ## What is not supported (yet)
 
 - no support for multiple matches from musicbrainz (just takes the first match)
 - composer field
-- configurable file naming patterns
 
 See [COMPARISON.md](COMPARISON.md) for a detailed feature comparison with other CD rippers.
 
