@@ -8,6 +8,8 @@ mod cdtext;
 mod data;
 mod gnudb;
 mod musicbrainz;
+#[cfg(target_os = "macos")]
+mod paranoia;
 mod ripper;
 mod ui;
 mod util;

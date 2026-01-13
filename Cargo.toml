@@ -20,13 +20,20 @@ musicbrainz_rs = { version = "0.12", default-features = false, features = [
 ] }
 glib = "0.21"
 gstreamer = "0.24"
-libcdio-sys = "2.0"
+gstreamer-app = "0.24"
+gstreamer-audio = "0.24"
 gtk = { package = "gtk4", version = "0.10", features = ["v4_8"] }
 home = "0.5"
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 simplelog = "0.12"
 gnudb = "0.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libcdio-sys = { version = "2.0", features = ["paranoia"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+libcdio-sys = "2.0"
 
 [dev-dependencies]
 

@@ -1,21 +1,30 @@
+#[cfg(target_os = "macos")]
+use crate::paranoia::{
+    calculate_extraction_progress, create_cd_appsrc, get_track_info, start_extraction,
+};
 use crate::{
     data::{Config, Disc, Encoder, Track},
     util::read_config,
 };
 use anyhow::{Result, anyhow};
 use async_channel::Sender;
+#[cfg(target_os = "macos")]
+use discid::DiscId;
 use glib::ControlFlow;
 use gstreamer::{
-    ClockTime, Element, ElementFactory, Format, GenericFormattedValue, MessageView, Pipeline,
-    State, TagList, TagMergeMode, TagSetter, URIType,
+    ClockTime, Element, ElementFactory, MessageView, Pipeline, State, TagList, TagMergeMode,
+    TagSetter,
     bus::BusWatchGuard,
-    format::Percent,
     glib,
     glib::MainLoop,
     prelude::*,
     tags::{Album, Artist, Composer, Date, Duration, Title, TrackNumber},
 };
+#[cfg(not(target_os = "macos"))]
+use gstreamer::{Format, GenericFormattedValue, URIType, format::Percent};
 use log::{debug, error};
+#[cfg(target_os = "macos")]
+use std::sync::atomic::AtomicU32;
 use std::{
     fmt::Write,
     path::Path,
@@ -42,6 +51,12 @@ struct TrackExtractor {
     status: Sender<String>,
     /// External flag indicating if ripping should continue (shared across all tracks)
     ripping: Arc<RwLock<bool>>,
+    /// Progress from paranoia extraction (sectors read) - macOS only
+    #[cfg(target_os = "macos")]
+    progress_sectors: Option<Arc<AtomicU32>>,
+    /// Total sectors for the track - macOS only
+    #[cfg(target_os = "macos")]
+    total_sectors: u32,
 }
 
 impl TrackExtractor {
@@ -52,7 +67,17 @@ impl TrackExtractor {
             last_error: Arc::new(RwLock::new(None)),
             status,
             ripping,
+            #[cfg(target_os = "macos")]
+            progress_sectors: None,
+            #[cfg(target_os = "macos")]
+            total_sectors: 0,
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn set_progress_tracking(&mut self, progress_sectors: Arc<AtomicU32>, total_sectors: u32) {
+        self.progress_sectors = Some(progress_sectors);
+        self.total_sectors = total_sectors;
     }
 
     fn was_aborted(&self) -> bool {
@@ -82,6 +107,35 @@ pub fn check_existing_files(disc: &Disc) -> Vec<String> {
 }
 
 /// Extract/Rip a `Disc` to the configured format
+#[cfg(target_os = "macos")]
+pub fn extract(
+    disc: &Disc,
+    status: &Sender<String>,
+    ripping: &Arc<RwLock<bool>>,
+    overwrite: bool,
+) -> Result<()> {
+    for track in &disc.tracks {
+        if !is_ripping(ripping) {
+            debug!("Ripping aborted by user");
+            break;
+        }
+        if track.rip {
+            let (pipeline, source) = create_pipeline(track, disc, overwrite)?;
+            extract_track(
+                &pipeline,
+                &source,
+                track.number,
+                &track.title,
+                status,
+                ripping.clone(),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+/// Extract/Rip a `Disc` to the configured format (Linux - uses cdda://)
+#[cfg(not(target_os = "macos"))]
 pub fn extract(
     disc: &Disc,
     status: &Sender<String>,
@@ -106,7 +160,85 @@ fn is_ripping(ripping: &Arc<RwLock<bool>>) -> bool {
     ripping.read().map(|r| *r).unwrap_or(false)
 }
 
-/// Rip one track using the provided pipeline
+/// Run a pipeline to completion, handling progress and cancellation (macOS version)
+#[cfg(target_os = "macos")]
+fn run_pipeline(
+    pipeline: &Pipeline,
+    title: &str,
+    status: &Sender<String>,
+    ripping: Arc<RwLock<bool>>,
+    progress_info: Option<(Arc<AtomicU32>, u32)>,
+) -> Result<()> {
+    let status_message = format!("Encoding {title}");
+    let _ = status.send_blocking(status_message.clone());
+
+    let mut extractor = TrackExtractor::new(status.clone(), ripping);
+    let main_loop = MainLoop::new(None, false);
+
+    if let Some((progress_sectors, total_sectors)) = progress_info {
+        extractor.set_progress_tracking(progress_sectors, total_sectors);
+    }
+
+    pipeline.set_state(State::Playing)?;
+
+    start_progress_updates(
+        &extractor,
+        status_message,
+        pipeline.clone(),
+        main_loop.clone(),
+    );
+    let _bus_watch = setup_bus_watch(&extractor, pipeline, main_loop.clone())?;
+
+    main_loop.run();
+
+    if let Some(msg) = extractor.take_error() {
+        return Err(anyhow!(msg));
+    }
+    if extractor.was_aborted() {
+        debug!("Encoding {title} aborted by user request");
+        return Err(anyhow!("Ripping aborted by user"));
+    }
+    debug!("Finished encoding {title}");
+    Ok(())
+}
+
+/// Rip one track using the provided pipeline with paranoia extraction (macOS)
+#[cfg(target_os = "macos")]
+fn extract_track(
+    pipeline: &Pipeline,
+    source: &Element,
+    track_number: u32,
+    title: &str,
+    status: &Sender<String>,
+    ripping: Arc<RwLock<bool>>,
+) -> Result<()> {
+    // Start the paranoia extraction thread
+    let device = DiscId::default_device();
+    let (extraction_handle, progress_sectors, total_sectors) = start_extraction(
+        Some(&device),
+        track_number,
+        source,
+        Arc::new(AtomicBool::new(false)), // abort flag managed separately
+    )?;
+
+    let result = run_pipeline(
+        pipeline,
+        title,
+        status,
+        ripping,
+        Some((progress_sectors, total_sectors)),
+    );
+
+    // Wait for the extraction thread to finish
+    if let Err(e) = extraction_handle.join() {
+        error!("Extraction thread panicked: {e:?}");
+    }
+
+    result
+}
+
+/// Rip one track using the provided pipeline (Linux - uses cdda://)
+#[cfg(not(target_os = "macos"))]
 fn extract_track(
     pipeline: &Pipeline,
     title: &str,
@@ -193,7 +325,48 @@ fn setup_bus_watch(
     Ok(guard)
 }
 
-/// Start periodic progress updates
+/// Start periodic progress updates (macOS - uses paranoia sector progress)
+#[cfg(target_os = "macos")]
+fn start_progress_updates(
+    extractor: &TrackExtractor,
+    status_message: String,
+    pipeline: Pipeline,
+    main_loop: MainLoop,
+) {
+    let working = extractor.working.clone();
+    let aborted = extractor.aborted.clone();
+    let ripping = extractor.ripping.clone();
+    let status = extractor.status.clone();
+    let progress_sectors = extractor.progress_sectors.clone();
+    let total_sectors = extractor.total_sectors;
+
+    glib::timeout_add(std::time::Duration::from_millis(500), move || {
+        if !working.load(Ordering::Relaxed) {
+            return ControlFlow::Break;
+        }
+
+        if !ripping.read().map(|r| *r).unwrap_or(false) {
+            working.store(false, Ordering::Relaxed);
+            aborted.store(true, Ordering::Relaxed);
+            let _ = pipeline.set_state(State::Null);
+            main_loop.quit();
+            return ControlFlow::Break;
+        }
+
+        let percent = if let Some(ref progress) = progress_sectors {
+            calculate_extraction_progress(progress, total_sectors)
+        } else {
+            0.0
+        };
+        let msg = format!("{status_message} : {percent:.0} %");
+        let _ = status.send_blocking(msg);
+
+        ControlFlow::Continue
+    });
+}
+
+/// Start periodic progress updates (Linux - uses GStreamer pipeline progress)
+#[cfg(not(target_os = "macos"))]
 fn start_progress_updates(
     extractor: &TrackExtractor,
     status_message: String,
@@ -226,7 +399,8 @@ fn start_progress_updates(
     });
 }
 
-/// Calculate pipeline progress as percentage
+/// Calculate pipeline progress as percentage (Linux only)
+#[cfg(not(target_os = "macos"))]
 #[allow(clippy::cast_precision_loss)]
 fn calculate_progress(pipeline: &Pipeline) -> f64 {
     let zero = GenericFormattedValue::Percent(Some(Percent::from_percent(0)));
@@ -246,11 +420,15 @@ fn calculate_progress(pipeline: &Pipeline) -> f64 {
     }
 }
 
-/// Create a `GStreamer` pipeline for encoding a track
-fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<Pipeline> {
+/// Create a `GStreamer` pipeline for encoding a track (macOS - uses appsrc)
+#[cfg(target_os = "macos")]
+fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<(Pipeline, Element)> {
     let config: Config = read_config();
 
-    let extractor = create_cd_source(track.number)?;
+    let device = DiscId::default_device();
+    let track_info = get_track_info(Some(&device), track.number)?;
+    let source = create_cd_appsrc(&track_info)?;
+
     let tags = build_tags(track, disc)?;
     let output_path = build_output_path(&config, disc, track, overwrite)?;
     let sink = create_file_sink(&output_path)?;
@@ -258,17 +436,45 @@ fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<Pipeli
     let pipeline = Pipeline::new();
 
     match config.encoder {
-        Encoder::MP3 => build_mp3_pipeline(&pipeline, extractor, sink, &tags, config.quality)?,
-        Encoder::OGG => build_ogg_pipeline(&pipeline, extractor, sink, &tags, config.quality)?,
-        Encoder::FLAC => build_flac_pipeline(&pipeline, extractor, sink, &tags, config.quality)?,
-        Encoder::OPUS => build_opus_pipeline(&pipeline, extractor, sink, &tags, config.quality)?,
-        Encoder::WAV => build_wav_pipeline(&pipeline, extractor, sink)?,
+        Encoder::MP3 => build_mp3_pipeline(&pipeline, source.clone(), sink, &tags, config.quality)?,
+        Encoder::OGG => build_ogg_pipeline(&pipeline, source.clone(), sink, &tags, config.quality)?,
+        Encoder::FLAC => {
+            build_flac_pipeline(&pipeline, source.clone(), sink, &tags, config.quality)?;
+        }
+        Encoder::OPUS => {
+            build_opus_pipeline(&pipeline, source.clone(), sink, &tags, config.quality)?;
+        }
+        Encoder::WAV => build_wav_pipeline(&pipeline, source.clone(), sink)?,
+    }
+
+    Ok((pipeline, source))
+}
+
+/// Create a `GStreamer` pipeline for encoding a track (Linux - uses cdda://)
+#[cfg(not(target_os = "macos"))]
+fn create_pipeline(track: &Track, disc: &Disc, overwrite: bool) -> Result<Pipeline> {
+    let config: Config = read_config();
+
+    let source = create_cd_source(track.number)?;
+    let tags = build_tags(track, disc)?;
+    let output_path = build_output_path(&config, disc, track, overwrite)?;
+    let sink = create_file_sink(&output_path)?;
+
+    let pipeline = Pipeline::new();
+
+    match config.encoder {
+        Encoder::MP3 => build_mp3_pipeline(&pipeline, source, sink, &tags, config.quality)?,
+        Encoder::OGG => build_ogg_pipeline(&pipeline, source, sink, &tags, config.quality)?,
+        Encoder::FLAC => build_flac_pipeline(&pipeline, source, sink, &tags, config.quality)?,
+        Encoder::OPUS => build_opus_pipeline(&pipeline, source, sink, &tags, config.quality)?,
+        Encoder::WAV => build_wav_pipeline(&pipeline, source, sink)?,
     }
 
     Ok(pipeline)
 }
 
-/// Create the CD audio source element
+/// Create the CD audio source element using cdda:// (Linux only)
+#[cfg(not(target_os = "macos"))]
 fn create_cd_source(track_number: u32) -> Result<Element> {
     let uri = format!("cdda://{track_number}");
     let extractor = Element::make_from_uri(URIType::Src, &uri, Some("cd_src"))?;
@@ -493,20 +699,107 @@ fn build_wav_pipeline(pipeline: &Pipeline, source: Element, sink: Element) -> Re
 #[cfg(test)]
 mod test {
     use anyhow::{Result, anyhow};
-    use gstreamer::{Bin, Element, ElementFactory, GhostPad, Pipeline, prelude::*};
+    use glib::{ControlFlow, MainLoop};
+    use gstreamer::{
+        Bin, Element, ElementFactory, GhostPad, MessageView, Pipeline, State, prelude::*,
+    };
     use std::{
         env,
         fs::{File, remove_file},
         io::Read,
         path::Path,
-        sync::{Arc, RwLock},
+        sync::{
+            Arc, RwLock,
+            atomic::{AtomicBool, Ordering},
+        },
     };
 
     use super::{
         build_flac_pipeline, build_mp3_pipeline, build_ogg_pipeline, build_opus_pipeline,
-        build_wav_pipeline, extract_track, generate_playlist_content, sanitize_path_component,
+        build_wav_pipeline, generate_playlist_content, sanitize_path_component,
     };
     use crate::data::{Disc, Quality, Track};
+
+    /// Test-only version of run_pipeline that works on all platforms
+    fn run_pipeline(
+        pipeline: &Pipeline,
+        title: &str,
+        status: &async_channel::Sender<String>,
+        ripping: Arc<RwLock<bool>>,
+    ) -> Result<()> {
+        let status_message = format!("Encoding {title}");
+        let _ = status.send_blocking(status_message.clone());
+
+        let working = Arc::new(AtomicBool::new(true));
+        let aborted = Arc::new(AtomicBool::new(false));
+        let main_loop = MainLoop::new(None, false);
+
+        pipeline.set_state(State::Playing)?;
+
+        // Progress updates
+        {
+            let working = working.clone();
+            let aborted = aborted.clone();
+            let ripping = ripping.clone();
+            let pipeline = pipeline.clone();
+            let main_loop = main_loop.clone();
+
+            glib::timeout_add(std::time::Duration::from_millis(500), move || {
+                if !working.load(Ordering::Relaxed) {
+                    return ControlFlow::Break;
+                }
+                if !ripping.read().map(|r| *r).unwrap_or(false) {
+                    working.store(false, Ordering::Relaxed);
+                    aborted.store(true, Ordering::Relaxed);
+                    let _ = pipeline.set_state(State::Null);
+                    main_loop.quit();
+                    return ControlFlow::Break;
+                }
+                ControlFlow::Continue
+            });
+        }
+
+        // Bus watch
+        let bus = pipeline
+            .bus()
+            .ok_or_else(|| anyhow!("Pipeline has no bus"))?;
+        let working_bus = working.clone();
+        let pipeline_bus = pipeline.clone();
+        let main_loop_bus = main_loop.clone();
+        let last_error: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
+        let last_error_bus = last_error.clone();
+
+        let _guard = bus.add_watch(move |_, msg| {
+            match msg.view() {
+                MessageView::Eos(..) => {
+                    working_bus.store(false, Ordering::Relaxed);
+                    let _ = pipeline_bus.set_state(State::Null);
+                    main_loop_bus.quit();
+                }
+                MessageView::Error(err) => {
+                    working_bus.store(false, Ordering::Relaxed);
+                    let error_msg = format!("GStreamer error: {} ({:?})", err.error(), err.debug());
+                    if let Ok(mut e) = last_error_bus.write() {
+                        *e = Some(error_msg);
+                    }
+                    let _ = pipeline_bus.set_state(State::Null);
+                    main_loop_bus.quit();
+                }
+                _ => (),
+            }
+            ControlFlow::Continue
+        })?;
+
+        main_loop.run();
+
+        if let Some(msg) = last_error.read().ok().and_then(|e| e.clone()) {
+            return Err(anyhow!(msg));
+        }
+        if aborted.load(Ordering::Relaxed) {
+            return Err(anyhow!("Ripping aborted by user"));
+        }
+        Ok(())
+    }
 
     // ==================== sanitize_path_component tests ====================
 
@@ -728,7 +1021,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        let result = extract_track(&pipeline, "track", &tx, ripping);
+        let result = run_pipeline(&pipeline, "track", &tx, ripping);
         // Pipeline fails because filesrc->filesink is invalid (incompatible elements)
         assert!(result.is_err());
         Ok(())
@@ -743,7 +1036,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(&t.pipeline, "track", &tx, ripping)?;
+        run_pipeline(&t.pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Mp3)?;
@@ -760,7 +1053,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(&t.pipeline, "track", &tx, ripping)?;
+        run_pipeline(&t.pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Flac)?;
@@ -777,7 +1070,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(&t.pipeline, "track", &tx, ripping)?;
+        run_pipeline(&t.pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Ogg)?;
@@ -794,7 +1087,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(&t.pipeline, "track", &tx, ripping)?;
+        run_pipeline(&t.pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Ogg)?;
@@ -811,7 +1104,7 @@ mod test {
 
         let (tx, _rx) = async_channel::unbounded();
         let ripping = Arc::new(RwLock::new(true));
-        extract_track(&t.pipeline, "track", &tx, ripping)?;
+        run_pipeline(&t.pipeline, "track", &tx, ripping)?;
 
         assert!(Path::new(dest).exists());
         verify_file_type(dest, &FileType::Wav)?;
