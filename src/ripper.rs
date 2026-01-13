@@ -542,10 +542,10 @@ fn build_tags(track: &Track, disc: &Disc) -> Result<TagList> {
     tags_mut.add::<Artist>(&track.artist.as_str(), TagMergeMode::ReplaceAll);
     tags_mut.add::<TrackNumber>(&track.number, TagMergeMode::ReplaceAll);
     tags_mut.add::<Album>(&disc.title.as_str(), TagMergeMode::ReplaceAll);
-    tags_mut.add::<Duration>(
-        &(ClockTime::SECOND * track.duration),
-        TagMergeMode::ReplaceAll,
-    );
+
+    // Don't add Duration tag - the encoder will calculate it from the actual audio
+    // Manual duration tags can cause issues with ID3 readers
+    debug!("Track {} duration from metadata: {} seconds", track.number, track.duration);
 
     if let Some(year) = disc.year {
         let date = glib::Date::from_dmy(1, glib::DateMonth::January, year)?;
