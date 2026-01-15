@@ -60,4 +60,7 @@ Tip: builds for macOS and linux are available on every build in Actions/Artifact
 
 #### FreeBSD
 on FreeBSD you'll need to give permission to your user to use the CD drive, see:
+
 https://forums.freebsd.org/threads/the-truth-please-why-are-cd-dvd-drives-not-usable-are-permissions-issues-a-freebsd-response-to-security-risks.88004/post-598165
+
+You'll also want to install the `eject` package, or auto eject the CD won't work.

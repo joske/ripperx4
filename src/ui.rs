@@ -40,6 +40,8 @@ fn format_duration(seconds: u64) -> String {
 fn eject_cd() {
     let result = if cfg!(target_os = "macos") {
         Command::new("drutil").arg("eject").output()
+    } else if cfg!(target_os = "freebsd") {
+        Command::new("eject").arg("/dev/cd0").output()
     } else {
         Command::new("eject").output()
     };
