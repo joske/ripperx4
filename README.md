@@ -17,7 +17,8 @@ This is mostly a learning excercise for me, not sure if this will get released
 at all (but hey, it's on github so anyone can build it ;-)). It includes code
 to query the disc on musicbrainz service (previous versions used gnudb, but
 that service seems down now, so I bit the bullet and implemented a basic query
-to musicbrainz vast info).
+to musicbrainz vast info). Update: some years later and gnudb is back online,
+and also there is now an external musicbrainz rust crate, so I'm using that instead.
 
 It is now almost feature complete, see below:
 
@@ -37,7 +38,7 @@ It is now almost feature complete, see below:
 - can eject CD when done
 - can open music folder when done
 - configurable file naming patterns
-- can disable paranoia (error correction) to speed up ripping
+- can disable paranoia (error correction) to speed up ripping (enabling error correction massively slows down ripping)
 
 ## What is not supported (yet)
 
