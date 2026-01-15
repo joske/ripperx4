@@ -21,7 +21,7 @@ to musicbrainz vast info).
 
 It is now almost feature complete, see below:
 
-## What works
+## What works (tested on Linux, FreeBSD and macOS)
 
 - can scan CDROM drive
 - reads CD-Text metadata (if available on disc)
@@ -57,3 +57,7 @@ Tip: builds for macOS and linux are available on every build in Actions/Artifact
 ## Running
 
 `cargo run`
+
+#### FreeBSD
+on FreeBSD you'll need to give permission to your user to use the CD drive, see:
+https://forums.freebsd.org/threads/the-truth-please-why-are-cd-dvd-drives-not-usable-are-permissions-issues-a-freebsd-response-to-security-risks.88004/post-598165
