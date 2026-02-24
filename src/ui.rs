@@ -604,7 +604,7 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
         select_all_button.connect_clicked(move |_| {
             // Determine if we should select or deselect all
             let mut should_select = false;
-            if let Some(iter) = store_for_select.iter_first() {
+            if let Some(mut iter) = store_for_select.iter_first() {
                 loop {
                     if let Ok(checked) = store_for_select.get_value(&iter, 0).get::<bool>()
                         && !checked
@@ -612,7 +612,7 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
                         should_select = true;
                         break;
                     }
-                    if !store_for_select.iter_next(&iter) {
+                    if !store_for_select.iter_next(&mut iter) {
                         break;
                     }
                 }
@@ -628,10 +628,10 @@ fn handle_scan(data: &Arc<RwLock<Data>>, builder: &Builder, window: &Application
             }
 
             // Update UI
-            if let Some(iter) = store_for_select.iter_first() {
+            if let Some(mut iter) = store_for_select.iter_first() {
                 loop {
                     store_for_select.set_value(&iter, 0, &should_select.to_value());
-                    if !store_for_select.iter_next(&iter) {
+                    if !store_for_select.iter_next(&mut iter) {
                         break;
                     }
                 }
