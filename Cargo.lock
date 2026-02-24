@@ -886,7 +886,32 @@ dependencies = [
  "futures-core",
  "futures-util",
  "glib 0.21.5",
- "gstreamer-sys",
+ "gstreamer-sys 0.24.4",
+ "itertools 0.14.0",
+ "kstring",
+ "libc",
+ "muldiv",
+ "num-integer",
+ "num-rational",
+ "option-operations",
+ "pastey",
+ "pin-project-lite",
+ "smallvec",
+ "thiserror",
+]
+
+[[package]]
+name = "gstreamer"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b308f4e01e375e0648f9737a0528dca6f6cbf7d4573f2374dbc069c88a027c6"
+dependencies = [
+ "cfg-if",
+ "futures-channel",
+ "futures-core",
+ "futures-util",
+ "glib 0.22.0",
+ "gstreamer-sys 0.25.0",
  "itertools 0.14.0",
  "kstring",
  "libc",
@@ -909,7 +934,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "glib 0.21.5",
- "gstreamer",
+ "gstreamer 0.24.4",
  "gstreamer-app-sys",
  "gstreamer-base",
  "libc",
@@ -923,7 +948,7 @@ checksum = "f7719cee28afda1a48ab1ee93769628bd0653d3c5be1923bce9a8a4550fcc980"
 dependencies = [
  "glib-sys 0.21.5",
  "gstreamer-base-sys",
- "gstreamer-sys",
+ "gstreamer-sys 0.24.4",
  "libc",
  "system-deps",
 ]
@@ -936,7 +961,7 @@ checksum = "92829dbca7c59ed4bf0c9154dd8c0cf3185d6bf9dad821b058b801d9671fa763"
 dependencies = [
  "cfg-if",
  "glib 0.21.5",
- "gstreamer",
+ "gstreamer 0.24.4",
  "gstreamer-audio-sys",
  "gstreamer-base",
  "libc",
@@ -952,7 +977,7 @@ dependencies = [
  "glib-sys 0.21.5",
  "gobject-sys 0.21.5",
  "gstreamer-base-sys",
- "gstreamer-sys",
+ "gstreamer-sys 0.24.4",
  "libc",
  "system-deps",
 ]
@@ -966,7 +991,7 @@ dependencies = [
  "atomic_refcell",
  "cfg-if",
  "glib 0.21.5",
- "gstreamer",
+ "gstreamer 0.24.4",
  "gstreamer-base-sys",
  "libc",
 ]
@@ -979,7 +1004,7 @@ checksum = "27a2eda2c61e13c11883bf19b290d07ea6b53d04fd8bfeb7af64b6006c6c9ee6"
 dependencies = [
  "glib-sys 0.21.5",
  "gobject-sys 0.21.5",
- "gstreamer-sys",
+ "gstreamer-sys 0.24.4",
  "libc",
  "system-deps",
 ]
@@ -993,6 +1018,19 @@ dependencies = [
  "cfg-if",
  "glib-sys 0.21.5",
  "gobject-sys 0.21.5",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
+name = "gstreamer-sys"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85d09343b4c23d64b3ef35f1f644598860cc9a4617e7ccded141de97cd528608"
+dependencies = [
+ "cfg-if",
+ "glib-sys 0.22.0",
+ "gobject-sys 0.22.0",
  "libc",
  "system-deps",
 ]
@@ -1793,7 +1831,7 @@ dependencies = [
  "glib 0.22.0",
  "glib-build-tools",
  "gnudb",
- "gstreamer",
+ "gstreamer 0.25.0",
  "gstreamer-app",
  "gstreamer-audio",
  "gtk4",

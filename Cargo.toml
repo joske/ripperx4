@@ -19,7 +19,7 @@ musicbrainz_rs = { version = "0.12", default-features = false, features = [
   "blocking",
 ] }
 glib = "0.22"
-gstreamer = "0.24"
+gstreamer = "0.25"
 gstreamer-app = "0.24"
 gstreamer-audio = "0.24"
 gtk = { package = "gtk4", version = "0.10", features = ["v4_8"] }
