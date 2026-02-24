@@ -19,10 +19,10 @@ musicbrainz_rs = { version = "0.12", default-features = false, features = [
   "blocking",
 ] }
 glib = "0.22"
-gstreamer = "0.24"
-gstreamer-app = "0.24"
-gstreamer-audio = "0.24"
-gtk = { package = "gtk4", version = "0.10", features = ["v4_8"] }
+gstreamer = "0.25"
+gstreamer-app = "0.25"
+gstreamer-audio = "0.25"
+gtk = { package = "gtk4", version = "0.11", features = ["v4_8"] }
 home = "0.5"
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
@@ -38,4 +38,4 @@ libcdio-sys = "2.0"
 [dev-dependencies]
 
 [build-dependencies]
-glib-build-tools = "0.21"
+glib-build-tools = "0.22"
