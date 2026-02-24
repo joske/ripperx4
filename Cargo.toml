@@ -38,4 +38,4 @@ libcdio-sys = "2.0"
 [dev-dependencies]
 
 [build-dependencies]
-glib-build-tools = "0.21"
+glib-build-tools = "0.22"
